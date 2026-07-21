@@ -1,5 +1,12 @@
 # LegaSynth 完整流程、系统边界与 Agent 同步记录
 
+## 2026-07-21 Stage 2 入口适配
+
+保留 `stage2/run_pipeline_relative.py` 为正式入口，新增 `--stage2-plan`。
+入口严格核对 Stage 1 交付与 A/B/A 算法，按逐段指令生成 S1/S2 心跳轨，
+并在 MIDI-GPT 后验证心跳事件未改变；`final_completed.mid` 与
+`stage2_completion_manifest.json` 一并交付 Stage 3。
+
 > 文档用途：供项目负责人、开发者和其他 Agent 回顾整体目标、核对当前进度、理解数据契约并继续开发。  
 > 最后更新：2026-07-20  
 > 当前阶段（2026-07-20）：三阶段职责以 [`三阶段职责边界.md`](三阶段职责边界.md) 为权威。Stage 1 负责规划、心音素材、MuseCoco主题生成以及主题MIDI速度/调性/小节长度修正；Stage 2 负责心跳鼓轨、完整MIDI框架和MIDI-GPT补全；Stage 3 只对已经包含心跳鼓轨的完整MIDI统一渲染混音。  
