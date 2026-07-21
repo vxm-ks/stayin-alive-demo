@@ -14,6 +14,7 @@ TEST_DIRECTORIES = (
     "midi_motif_detector/tests",
     "stage1_story_agent/tests",
     "midigpt_scaffold_builder/tests",
+    "stage2/tests",
     "musecoco_runtime_bridge/tests",
     "stage3_midi_renderer/tests",
     "wav_track_mixer/tests",
