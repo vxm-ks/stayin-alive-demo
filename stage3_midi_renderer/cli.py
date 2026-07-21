@@ -17,6 +17,7 @@ from .heartbeat_conditioning import (
 )
 from .renderer import Stage3RenderError, render_complete_midi, validate_render_inputs
 from .package_renderer import parse_package_binding, render_with_packages
+from .batch_validator import LoudnessLimits, batch_validate_midis
 
 
 def _common(parser: argparse.ArgumentParser) -> None:
@@ -66,6 +67,34 @@ def build_parser() -> argparse.ArgumentParser:
     packages.add_argument("--synth-gain", type=float, default=0.5)
     packages.add_argument("--timeout", type=int, default=600, metavar="SECONDS")
     packages.add_argument("--force", action="store_true")
+    batch = subparsers.add_parser(
+        "batch-validate",
+        help="batch-render Stage-2-compliant MIDI files and audit loudness acceptance",
+    )
+    batch.add_argument(
+        "--input-midi", type=Path, action="append",
+        help="repeatable complete Stage 2 MIDI",
+    )
+    batch.add_argument(
+        "--input-dir", type=Path, action="append",
+        help="repeatable directory recursively searched for .mid/.midi files",
+    )
+    batch.add_argument("--general-sf2", type=Path, required=True)
+    batch.add_argument("--render-plan", type=Path, required=True)
+    batch.add_argument(
+        "--heartbeat-package", action="append", required=True, metavar="ID=PATH",
+    )
+    batch.add_argument("--output-dir", type=Path, required=True)
+    batch.add_argument("--fluidsynth", default="fluidsynth")
+    batch.add_argument("--sample-rate", type=int, default=48_000)
+    batch.add_argument("--synth-gain", type=float, default=0.5)
+    batch.add_argument("--timeout", type=int, default=600, metavar="SECONDS")
+    batch.add_argument("--min-integrated-lufs", type=float, default=-18.0)
+    batch.add_argument("--max-integrated-lufs", type=float, default=-12.0)
+    batch.add_argument("--max-true-peak-dbtp", type=float, default=-1.0)
+    batch.add_argument("--min-heartbeat-over-music-db", type=float, default=2.0)
+    batch.add_argument("--max-heartbeat-over-music-db", type=float, default=8.0)
+    batch.add_argument("--force", action="store_true")
     condition = subparsers.add_parser(
         "condition-heartbeat",
         help="condition an isolated heartbeat WAV before SoundFont construction",
@@ -143,6 +172,33 @@ def main(argv: list[str] | None = None) -> int:
             )
             print(json.dumps(result.as_dict(), ensure_ascii=False, indent=2))
             return 0
+        if args.command == "batch-validate":
+            bindings: dict[str, Path] = {}
+            for value in args.heartbeat_package:
+                package_id, package_path = parse_package_binding(value)
+                if package_id in bindings:
+                    raise Stage3RenderError(f"duplicate heartbeat package ID: {package_id}")
+                bindings[package_id] = package_path
+            midis = list(args.input_midi or [])
+            for directory in args.input_dir or []:
+                if not directory.is_dir():
+                    raise Stage3RenderError(f"batch input directory not found: {directory}")
+                midis.extend(path for path in directory.rglob("*") if path.suffix.lower() in (".mid", ".midi"))
+            result = batch_validate_midis(
+                midis, args.general_sf2, args.render_plan, bindings, args.output_dir,
+                fluidsynth=args.fluidsynth, sample_rate=args.sample_rate,
+                synth_gain=args.synth_gain, timeout_seconds=args.timeout,
+                limits=LoudnessLimits(
+                    min_integrated_lufs=args.min_integrated_lufs,
+                    max_integrated_lufs=args.max_integrated_lufs,
+                    max_true_peak_dbtp=args.max_true_peak_dbtp,
+                    min_heartbeat_over_music_db=args.min_heartbeat_over_music_db,
+                    max_heartbeat_over_music_db=args.max_heartbeat_over_music_db,
+                ),
+                force=args.force,
+            )
+            print(json.dumps(result.as_dict(), ensure_ascii=False, indent=2))
+            return 0 if result.status == "PASS" else 1
         channel = args.heartbeat_channel - 1
         notes = tuple(args.heartbeat_note or [36, 38])
         if not 1 <= args.heartbeat_channel <= 16:

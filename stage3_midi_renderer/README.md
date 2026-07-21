@@ -65,6 +65,47 @@ D:\conda\python.exe -m stage3_midi_renderer render `
 
 `heartbeat_conditioning` 只处理孤立的真实 S1/S2 样本，不处理整曲。`render-packages` 默认使用 `speaker_safe_loud_v1`，也可在 plan 中设为 `none`。完整参数与算法见 [`HEARTBEAT_CONDITIONING.md`](HEARTBEAT_CONDITIONING.md)。
 
+## 批量验证任意合规的 Stage 2 MIDI
+
+完整的人工操作、报告判读和听感检查流程见
+[`MANUAL_BATCH_TESTING.md`](MANUAL_BATCH_TESTING.md)。
+
+`batch-validate` 用于回答“不同完整 MIDI 是否都能得到可接受的最终响度”。这里的任意 MIDI
+必须通过正式接口：含音乐事件，并在 plan 指定的心跳通道上包含可由 `note_map` 解释的 S1/S2
+事件。测试器不会新增、删除或移动 MIDI 事件。
+
+批量测试必须使用 `mix.mode=event_window_relative`。可从
+[`examples/stage3_batch_validation_plan.example.json`](examples/stage3_batch_validation_plan.example.json)
+复制 plan。测试器只在诊断副本中强制 `publish_stems=true`，以测量局部音乐/心跳比例；原 plan
+不会被改写。
+
+```powershell
+D:\conda\python.exe -m stage3_midi_renderer batch-validate `
+  --input-dir ".\stage2_outputs" `
+  --general-sf2 "D:\soundfonts\general.sf2" `
+  --render-plan ".\stage3_batch_validation_plan.json" `
+  --heartbeat-package "patient_a=D:\packages\patient_a\heartbeat_package" `
+  --output-dir ".\stage3_midi_renderer\outputs\batch-validation" `
+  --fluidsynth ".\tools\fluidsynth\bin\fluidsynth.exe"
+```
+
+也可重复传入 `--input-midi`。默认验收范围为：整曲 `-18` 至 `-12 LUFS`、真峰值不高于
+`-1 dBTP`、心跳事件窗口内的中位数 RMS 比音乐高 `2` 至 `8 dB`。所有阈值都有对应 CLI
+参数，可按播放平台或作品需求修改。命令会继续处理不合规文件，并输出：
+
+```text
+batch_validation_report.json
+batch_validation_report.csv
+renders/<MIDI名-哈希>/final_mix.wav
+renders/<MIDI名-哈希>/music_stem.wav
+renders/<MIDI名-哈希>/heartbeat_stem.wav
+```
+
+退出码 `0` 表示全部通过，`1` 表示至少一首未通过，`2` 表示批次配置本身无效。测量依据为
+[ITU-R BS.1770-5](https://www.itu.int/rec/R-REC-BS.1770-5-202311-I/en) 与
+[EBU R128 v5.0](https://tech.ebu.ch/publications/r128)。真峰值为 4 倍过采样估计；它适合自动化
+回归验收，但正式发行前仍建议用经过认证的响度表复核。
+
 ## 依赖与测试
 
 ```powershell
@@ -72,6 +113,7 @@ D:\conda\python.exe -m pip install -r .\stage3_midi_renderer\requirements.txt
 
 D:\conda\python.exe -m unittest `
   stage3_midi_renderer.tests.test_package_renderer `
+  stage3_midi_renderer.tests.test_batch_validator `
   stage3_midi_renderer.tests.test_heartbeat_conditioning `
   stage3_midi_renderer.tests.test_renderer `
   heartbeat_midi_exporter.tests.test_heartbeat_midi_exporter -v
