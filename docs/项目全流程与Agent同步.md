@@ -1,5 +1,13 @@
 # LegaSynth 完整流程、系统边界与 Agent 同步记录
 
+## 2026-07-21 Stage 2 测试状态与自动交接
+
+当前 Stage 2 正式入口暂标记为测试状态：固定三段 `A-B-A`，每段接收 8 小节 Stage 1 主题并生成后续 8 小节，总计 48 小节。Stage 2 在复制 A/B 素材时强制移除所有原有 MIDI 通道 10 消息，再按 `stage2_plan.json` 重建并保护 S1/S2 心跳轨。入口新增 `--stage1-output-base` 自动发现并验签 Stage 1 的计划与最终主题；完成后生成 `stage3_handoff.json`，Stage 3 可用 `render-packages --stage2-handoff` 自动加载并验签完整 MIDI、render plan 和多个 heartbeat package。通用乐器 SF2 仍由 Stage 3 显式提供。
+
+## 2026-07-21 Stage 1 / Stage 3 长度合同更新
+
+Stage 1 测试模式现为 48 小节 `A-B-A`，三段均由 8 小节主题和 8 小节填充组成；正式模式不固定曲式标签和段落数量，但默认每段同样采用 8+8。正式 Stage 3 保持长度无关，不重新规划或移动心跳事件，并新增 48 小节完整 MIDI 回归覆盖。Stage 2 本次未修改。
+
 ## 2026-07-21 Stage 2 入口适配
 
 保留 `stage2/run_pipeline_relative.py` 为正式入口，新增 `--stage2-plan`。
@@ -103,7 +111,7 @@ MIDI-GPT 不是 BPM 检测器、动机检测器或故事理解器。它负责在
 | MuseCoco 适配器 | 尚无模块 | 未实现 | 官方控制指令 | 多个主题动机 MIDI 和清单 |
 | MIDI-GPT 框架装配器 | `midigpt_scaffold_builder/` | 已实现 `0.1.1`，8 项回归通过 | 音乐计划、动机、心音事件素材 | 已编排心音轨、`Score`、`GenerationRequest`、HTTP 请求体、装配清单 |
 | MIDI-GPT 推理适配器 | 尚无模块 | 未实现 | 框架与 checkpoint | 完整多轨 MIDI、推理清单 |
-| 最终 MIDI 渲染 | 外部工具/待定 | 未固化 | 完整 MIDI、SF2、其他音源 | 最终 WAV |
+| 最终 MIDI 渲染 | `stage3_midi_renderer/` | 已实现；支持多 heartbeat package、独立响度平衡及任意合规曲长 | 完整 MIDI、通用 SF2、heartbeat package/心跳 SF2、渲染 plan | 最终 WAV、事件分配与混音审计清单 |
 
 ## 6. 当前已实现的心音链
 

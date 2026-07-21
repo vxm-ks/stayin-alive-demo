@@ -1,9 +1,11 @@
 # MIDI 完整生成模块
 
+> 当前状态：**测试模式**。只接受三段 `A-B-A`，每段固定为前 8 小节主题、后 8 小节 MIDI-GPT 填充，总计 48 小节。正式模式的任意曲式尚未在本入口启用。
+
 ## 与 Stage 1 / Stage 3 的正式适配
 
 正式入口仍是 `run_pipeline_relative.py`。传入 Stage 1 生成的
-`stage2_plan.json` 后，入口会验证三段 A/B/A 的边界、4 小节主题、扩展长度、
+`stage2_plan.json` 后，入口会验证三段 A/B/A 的边界、8 小节主题、8 小节扩展、
 BPM、拍号以及保护/编辑范围都与当前算法一致；任何不一致都会停止运行。
 
 ```powershell
@@ -14,9 +16,37 @@ python .\run_pipeline_relative.py .\inputs\A.mid .\inputs\B.mid `
 
 传入计划后，鼓轨按逐段 tension/drum 指令生成通道 10 的 S1(36)/S2(38)
 心跳事件。MIDI-GPT 前后会比较这些事件；发生改动则拒绝输出交接清单。
+装配时会先检测并删除 A/B 输入中所有原有 MIDI 通道 10 消息，再填入计划规定的心跳轨，防止旧鼓点与真实心跳叠加。清理数量写入完成清单。
 最终产物为完整 MIDI 和 `stage2_completion_manifest.json`，可直接作为
 `stage3_midi_renderer --input-midi` 的输入。不传 `--stage2-plan` 时继续使用
 旧的 42 号闭镲行为，仅用于兼容原来的独立运行方式。
+
+## Stage 1 → Stage 2 → Stage 3 自动衔接
+
+当 Stage 1 已发布四个同前缀目录，并已完成 `generated_themes` 后处理时，可以只传 Stage 1 的输出基名：
+
+```powershell
+python .\stage2\run_pipeline_relative.py `
+  --stage1-output-base ".\stage1_story_agent\outputs\story-001" `
+  --heartbeat-package "patient_a=.\heartbeat_stage1\outputs\patient_a\heartbeat_package" `
+  --stage3-render-plan ".\stage3_midi_renderer\examples\stage3_render_plan.example.json" `
+  --output ".\stage2\outputs\story-001\final_completed.mid"
+```
+
+入口会自动定位并验哈希：
+
+- `story-001-stage2/stage2_plan.json`；
+- `story-001-musecoco/generated_themes/theme-A/final.mid`；
+- `story-001-musecoco/generated_themes/theme-B/final.mid`。
+
+成功后额外输出 `stage3_handoff.json`。它冻结完整 MIDI、render plan 和所有 heartbeat package 清单的 SHA-256，Schema 位于 `stage2/schemas/stage3_handoff.schema.json`。Stage 3 可直接运行：
+
+```powershell
+python -m stage3_midi_renderer render-packages `
+  --stage2-handoff ".\stage2\outputs\story-001\stage3_handoff.json" `
+  --general-sf2 "D:\soundfonts\general.sf2" `
+  --output-dir ".\stage3_midi_renderer\outputs\story-001"
+```
 
 该模块会依次完成：
 
@@ -49,7 +79,7 @@ stage2/
 
 要求：
 
-- `A.mid` 和 `B.mid` 都是 4 小节；
+- `A.mid` 和 `B.mid` 都是 8 小节；
 - 两个 MIDI 的拍号一致；
 - `inputs`、`outputs` 和 MIDI 文件名建议使用英文；
 - 使用已经安装 `midigpt` 的 Python 虚拟环境。
@@ -125,7 +155,9 @@ python .\run_pipeline_relative.py `
 ```text
 outputs/
 ├─ combined_with_drums.mid
-└─ final_completed.mid
+├─ final_completed.mid
+├─ stage2_completion_manifest.json
+└─ stage3_handoff.json
 ```
 
 其中：
@@ -205,7 +237,7 @@ complete_all_gaps_v3.py
 
 确认：
 
-- `A.mid` 和 `B.mid` 都是 4 小节；
+- `A.mid` 和 `B.mid` 都是 8 小节；
 - 命令中的 `--time-signature` 与输入 MIDI 一致；
 - BPM 大于 0。
 

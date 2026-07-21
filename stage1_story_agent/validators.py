@@ -57,6 +57,17 @@ def validate_and_compile_draft(
     segment_ids = {segment.segment_id for segment in segments}
     referenced_ids: set[str] = set()
     for section_index, section in enumerate(draft.form_sections):
+        expected_section_bars = (
+            constraints.musecoco_output_bars + constraints.default_extension_bars
+        )
+        if section.bar_count != expected_section_bars:
+            issues.append(
+                _issue(
+                    "SECTION_LENGTH_MISMATCH",
+                    f"form_sections[{section_index}].bar_count",
+                    f"each section must contain {constraints.musecoco_output_bars} motif bars plus {constraints.default_extension_bars} extension bars",
+                )
+            )
         if not constraints.tempo_bpm_min <= section.tempo_bpm <= constraints.tempo_bpm_max:
             issues.append(_issue("SECTION_TEMPO_OUT_OF_RANGE", f"form_sections[{section_index}].tempo_bpm", "section tempo must be inside the requested range"))
         for ref_index, segment_id in enumerate(section.narrative_segment_ids):
@@ -130,7 +141,7 @@ def validate_and_compile_draft(
             ("A", "reprise", 0, "S1", TEST_MODE_SECTION_BARS[2]),
         )
         if actual_shape != expected_shape:
-            issues.append(_issue("TEST_MODE_FORM_MISMATCH", "form_sections", "test mode requires exact A-B-A sections with 8, 16, and 8 bars"))
+            issues.append(_issue("TEST_MODE_FORM_MISMATCH", "form_sections", "test mode requires exact A-B-A sections with 16, 16, and 16 bars"))
         if (
             proposal.tempo_bpm != TEST_MODE_TEMPO_BPM
             or proposal.time_signature != TEST_MODE_TIME_SIGNATURE
@@ -331,12 +342,7 @@ def validate_content_plan(request: StoryPlanRequest, plan: ContentPlan) -> None:
                 or targets.P4 != TEST_MODE_PITCH_RANGE_OCTAVES
             ):
                 issues.append(_issue("TEST_MODE_MELODIC_PROFILE_MISMATCH", f"theme_families[{index}].musecoco_attribute_targets", "final test-mode MuseCoco attributes must match the melodic profile"))
-        expected_access = tuple(
-            "fixed"
-            if index == 2 or section.bar_count == request.constraints.musecoco_output_bars
-            else "extension_only"
-            for index, section in enumerate(sections)
-        )
+        expected_access = ("extension_only",) * len(sections)
         for index, (instruction, expected, expected_pattern) in enumerate(zip(plan.stage2_handoff.sections, expected_access, TEST_MODE_DRUM_PATTERNS, strict=True)):
             if instruction.tempo_bpm != TEST_MODE_TEMPO_BPM:
                 issues.append(_issue("TEST_MODE_SECTION_TEMPO_MISMATCH", f"stage2_handoff.sections[{index}].tempo_bpm", "test-mode section tempo must be 96 BPM"))

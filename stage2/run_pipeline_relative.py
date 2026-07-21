@@ -1,4 +1,4 @@
-"""Run the repository-integrated A/B/A Stage 2 pipeline using relative paths."""
+"""Run the repository-integrated Stage 2 test pipeline using relative paths."""
 
 from __future__ import annotations
 
@@ -15,11 +15,17 @@ from pathlib import Path
 from mido import MidiFile
 
 
+STAGE2_STATUS = "test"
+TEST_MOTIF_BARS = 8
+TEST_EXTENSION_BARS = 8
+
+
 @dataclass(frozen=True)
 class PipelineResult:
     combined_midi: Path
     completed_midi: Path
     manifest: Path
+    stage3_handoff: Path
 
 
 @dataclass(frozen=True)
@@ -31,6 +37,13 @@ class Stage2PlanSettings:
     gap_bars: int
     total_bars: int
     sha256: str
+
+
+@dataclass(frozen=True)
+class Stage1Inputs:
+    a_midi: Path
+    b_midi: Path
+    stage2_plan: Path
 
 
 def sha256_file(path: Path) -> str:
@@ -46,6 +59,48 @@ def require_file(path: Path, label: str) -> None:
         raise FileNotFoundError(f"{label} not found: {path}")
 
 
+def resolve_stage1_inputs(output_base: Path, base_dir: Path) -> Stage1Inputs:
+    """Resolve Stage 1 sibling deliveries and verify the finalized theme manifest."""
+    base = resolve_path(output_base, base_dir)
+    if base.name.endswith("-stage2"):
+        base = base.with_name(base.name[:-7])
+    stage2_plan = base.with_name(f"{base.name}-stage2") / "stage2_plan.json"
+    themes_root = base.with_name(f"{base.name}-musecoco") / "generated_themes"
+    manifest_path = themes_root / "theme_manifest.json"
+    require_file(stage2_plan, "Stage 1 stage2_plan.json")
+    require_file(manifest_path, "Stage 1 finalized theme manifest")
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if data.get("schema_version") != "musecoco-final-themes-v1":
+        raise ValueError("unsupported Stage 1 theme manifest schema")
+    if data.get("output_motif_bars") != TEST_MOTIF_BARS:
+        raise ValueError("Stage 1 themes must be finalized to exactly 8 bars")
+    by_symbol = {item.get("base_symbol"): item for item in data.get("items", [])}
+    if not {"A", "B"}.issubset(by_symbol):
+        raise ValueError("Stage 1 test delivery must contain finalized A and B themes")
+
+    def checked_theme(symbol: str) -> Path:
+        item = by_symbol[symbol]
+        path = (themes_root / str(item.get("final_midi", ""))).resolve()
+        require_file(path, f"Stage 1 {symbol} final.mid")
+        if item.get("final_sha256") != sha256_file(path):
+            raise ValueError(f"Stage 1 {symbol} final.mid hash mismatch")
+        return path
+
+    plan_data = json.loads(stage2_plan.read_text(encoding="utf-8"))
+    if plan_data.get("story_id") != data.get("story_id"):
+        raise ValueError("Stage 1 theme manifest and stage2_plan story_id differ")
+    return Stage1Inputs(checked_theme("A"), checked_theme("B"), stage2_plan)
+
+
+def parse_package_binding(value: str, base_dir: Path) -> tuple[str, Path]:
+    package_id, separator, raw_path = value.partition("=")
+    if not separator or not package_id.strip() or not raw_path.strip():
+        raise ValueError("heartbeat package must use ID=PATH")
+    path = resolve_path(Path(raw_path.strip()), base_dir)
+    require_file(path / "heartbeat_manifest.json", f"heartbeat package {package_id.strip()}")
+    return package_id.strip(), path
+
+
 def parse_time_signature(value: str) -> tuple[int, int]:
     try:
         numerator, denominator = (int(part) for part in value.split("/", 1))
@@ -57,7 +112,7 @@ def parse_time_signature(value: str) -> tuple[int, int]:
 
 
 def load_stage2_plan(path: Path, base_dir: Path) -> Stage2PlanSettings:
-    """Fail closed unless Stage 1's plan exactly matches this A/B/A algorithm."""
+    """Fail closed unless Stage 1's plan matches the current 8+8 A/B/A test pipeline."""
     absolute = resolve_path(path, base_dir)
     require_file(absolute, "stage2_plan.json")
     try:
@@ -68,29 +123,31 @@ def load_stage2_plan(path: Path, base_dir: Path) -> Stage2PlanSettings:
         raise ValueError("stage2_plan.schema_version must be 0.2-draft")
     sections = data.get("sections")
     if not isinstance(sections, list) or len(sections) != 3:
-        raise ValueError("this pipeline requires exactly three A/B/A sections")
+        raise ValueError("the Stage 2 test pipeline requires exactly three A/B/A sections")
+    if data.get("form_string") != "A-B-A":
+        raise ValueError("the Stage 2 test pipeline requires form_string A-B-A")
     time_signature = data.get("time_signature")
     parse_time_signature(time_signature)
     tempos = {float(section.get("tempo_bpm", 0)) for section in sections}
     if len(tempos) != 1 or next(iter(tempos)) <= 0:
         raise ValueError("all sections must use one positive tempo")
     bpm = next(iter(tempos))
-    gap_bars = 28 if bpm > 100 else 12
+    gap_bars = TEST_EXTENSION_BARS
     expected_start = 1
     for number, section in enumerate(sections, 1):
-        expected_end = expected_start + 4 + gap_bars - 1
+        expected_end = expected_start + TEST_MOTIF_BARS + gap_bars - 1
         if (section.get("bar_start"), section.get("bar_end")) != (expected_start, expected_end):
             raise ValueError(f"section {number} does not match the A/B/A bar layout")
-        if section.get("input_motif_bars") != 4 or section.get("extension_bars") != gap_bars:
-            raise ValueError(f"section {number} must have a 4-bar motif and {gap_bars}-bar extension")
-        if section.get("target_section_bars") != 4 + gap_bars:
+        if section.get("input_motif_bars") != TEST_MOTIF_BARS or section.get("extension_bars") != gap_bars:
+            raise ValueError(f"section {number} must have an 8-bar motif and 8-bar extension")
+        if section.get("target_section_bars") != TEST_MOTIF_BARS + gap_bars:
             raise ValueError(f"section {number}.target_section_bars is inconsistent")
         if (section.get("midigpt_access"), section.get("extension_method")) != ("extension_only", "midigpt_extend"):
             raise ValueError(f"section {number} must use extension_only/midigpt_extend")
-        protected = [{"bar_start": expected_start, "bar_end": expected_start + 3}]
-        editable = [{"bar_start": expected_start + 4, "bar_end": expected_end}]
+        protected = [{"bar_start": expected_start, "bar_end": expected_start + TEST_MOTIF_BARS - 1}]
+        editable = [{"bar_start": expected_start + TEST_MOTIF_BARS, "bar_end": expected_end}]
         if section.get("protected_bar_ranges") != protected:
-            raise ValueError(f"section {number} does not protect its four motif bars")
+            raise ValueError(f"section {number} does not protect its eight motif bars")
         if section.get("editable_bar_ranges") != editable:
             raise ValueError(f"section {number} editable bars differ from its extension")
         if section.get("drum_pattern", {}).get("time_signature") != time_signature:
@@ -142,6 +199,25 @@ def heartbeat_signature(path: Path) -> list[tuple[int, str, int, int]]:
     return sorted(result)
 
 
+def channel_message_count(path: Path, channel: int = 9) -> int:
+    """Count source channel messages that assembly must remove before refill."""
+    return sum(
+        1
+        for track in MidiFile(path).tracks
+        for message in track
+        if getattr(message, "channel", None) == channel
+    )
+
+
+def channel_note_numbers(path: Path, channel: int = 9) -> set[int]:
+    return {
+        message.note
+        for track in MidiFile(path).tracks
+        for message in track
+        if getattr(message, "channel", None) == channel and hasattr(message, "note")
+    }
+
+
 def run_command(command: list[str], label: str, cwd: Path) -> None:
     print(f"\n=== {label} ===")
     completed = subprocess.run(command, cwd=str(cwd), check=False)
@@ -160,12 +236,27 @@ def run_pipeline(
     seed: int = 42,
     resume: bool = False,
     stage2_plan: Path | None = None,
+    heartbeat_packages: tuple[str, ...] = (),
+    stage3_render_plan: Path | None = None,
 ) -> PipelineResult:
     stage2_dir = Path(__file__).resolve().parent
     combine_script = stage2_dir / "combine_midi_with_drums.py"
     completion_script = stage2_dir / "complete_all_gaps_v3.py"
     require_file(combine_script, "combine script")
     require_file(completion_script, "completion script")
+    package_bindings: dict[str, Path] = {}
+    for binding in heartbeat_packages:
+        package_id, package_path = parse_package_binding(binding, stage2_dir)
+        if package_id in package_bindings:
+            raise ValueError(f"duplicate heartbeat package ID: {package_id}")
+        package_bindings[package_id] = package_path
+    render_plan_absolute = (
+        resolve_path(stage3_render_plan, stage2_dir) if stage3_render_plan else None
+    )
+    if render_plan_absolute:
+        require_file(render_plan_absolute, "Stage 3 render plan")
+    if bool(package_bindings) != bool(render_plan_absolute):
+        raise ValueError("heartbeat packages and --stage3-render-plan must be supplied together")
     plan = load_stage2_plan(stage2_plan, stage2_dir) if stage2_plan else None
     if plan:
         if bpm is not None and abs(plan.bpm - bpm) > 1e-9:
@@ -185,6 +276,9 @@ def run_pipeline(
     output_absolute = resolve_path(output_path, stage2_dir)
     require_file(a_absolute, "A.mid")
     require_file(b_absolute, "B.mid")
+    removed_channel_10_messages = (
+        2 * channel_message_count(a_absolute) + channel_message_count(b_absolute)
+    )
     output_absolute.parent.mkdir(parents=True, exist_ok=True)
     combined = output_absolute.parent / "combined_with_drums.mid"
     combined_manifest = output_absolute.parent / "combined_with_drums.manifest.json"
@@ -194,6 +288,8 @@ def run_pipeline(
         "stage2_plan_sha256": plan.sha256 if plan else None,
         "bpm": bpm,
         "time_signature": time_signature,
+        "stage2_status": STAGE2_STATUS,
+        "source_channel_10_messages_to_remove": removed_channel_10_messages,
     }
 
     combined_arg = relative_argument(combined, stage2_dir, "combined MIDI")
@@ -220,6 +316,8 @@ def run_pipeline(
         if checkpoint.get("combined_midi_sha256") != sha256_file(combined):
             raise RuntimeError("combined MIDI hash differs from its checkpoint manifest")
     validate_midi(combined, "combined MIDI")
+    if plan and not channel_note_numbers(combined).issubset({36, 38}):
+        raise RuntimeError("legacy channel-10 notes survived cleanup before heartbeat refill")
     before = heartbeat_signature(combined)
     if plan and not before:
         raise RuntimeError("stage2_plan produced no S1/S2 heartbeat events")
@@ -237,8 +335,9 @@ def run_pipeline(
         raise RuntimeError("MIDI-GPT changed protected S1/S2 heartbeat events")
 
     manifest_path = output_absolute.parent / "stage2_completion_manifest.json"
+    handoff_path = output_absolute.parent / "stage3_handoff.json"
     manifest = {
-        "schema_version": "1.0", "stage": "stage2",
+        "schema_version": "1.0", "stage": "stage2", "status": STAGE2_STATUS,
         "entry_point": "stage2/run_pipeline_relative.py",
         "generated_at": datetime.now(UTC).isoformat(),
         "story_id": plan.story_id if plan else None,
@@ -249,27 +348,75 @@ def run_pipeline(
         },
         "settings": {"bpm": bpm, "time_signature": time_signature, "model": model_name, "seed": seed},
         "protected_heartbeat": {"preserved": True, "midi_messages": len(after)},
+        "input_channel_10_cleanup": {
+            "policy": "remove_all_before_heartbeat_refill",
+            "removed_midi_messages": removed_channel_10_messages,
+            "verified_refill_notes_only": sorted(channel_note_numbers(output_absolute)) == [36, 38],
+        },
         "output": {"complete_midi": str(output_absolute), "sha256": sha256_file(output_absolute)},
     }
     manifest_path.write_text(json.dumps(manifest, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    return PipelineResult(combined, output_absolute, manifest_path)
+    handoff = {
+        "schema_version": "stage2-stage3-handoff-v1",
+        "stage2_status": STAGE2_STATUS,
+        "story_id": plan.story_id if plan else None,
+        "complete_midi": {
+            "path": os.path.relpath(output_absolute, handoff_path.parent),
+            "sha256": sha256_file(output_absolute),
+        },
+        "heartbeat_channel": 10,
+        "note_map": {"36": "S1", "38": "S2"},
+        "heartbeat_packages": [
+            {
+                "id": package_id,
+                "path": os.path.relpath(package_path, handoff_path.parent),
+                "manifest_sha256": sha256_file(package_path / "heartbeat_manifest.json"),
+            }
+            for package_id, package_path in sorted(package_bindings.items())
+        ],
+        "render_plan": (
+            {
+                "path": os.path.relpath(render_plan_absolute, handoff_path.parent),
+                "sha256": sha256_file(render_plan_absolute),
+            }
+            if render_plan_absolute else None
+        ),
+    }
+    handoff_path.write_text(json.dumps(handoff, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    return PipelineResult(combined, output_absolute, manifest_path, handoff_path)
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Run the relative-path A/B/A Stage 2 pipeline")
-    parser.add_argument("a_midi", type=Path)
-    parser.add_argument("b_midi", type=Path)
+    parser = argparse.ArgumentParser(description="Run the TEST-STATUS relative-path 8+8 A/B/A Stage 2 pipeline")
+    parser.add_argument("a_midi", type=Path, nargs="?")
+    parser.add_argument("b_midi", type=Path, nargs="?")
+    parser.add_argument(
+        "--stage1-output-base", type=Path,
+        help="Stage 1 output base; automatically resolves stage2_plan and finalized A/B themes",
+    )
     parser.add_argument("--bpm", type=float, help="optional when --stage2-plan supplies it")
     parser.add_argument("--time-signature", help="optional when --stage2-plan supplies it")
     parser.add_argument("--stage2-plan", type=Path, help="Stage 1 stage2_plan.json")
+    parser.add_argument("--heartbeat-package", action="append", default=[], metavar="ID=PATH")
+    parser.add_argument("--stage3-render-plan", type=Path)
     parser.add_argument("--output", type=Path, default=Path("outputs/final_completed.mid"))
     parser.add_argument("--model", default="yellow")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--resume", action="store_true")
     args = parser.parse_args(argv)
+    if args.stage1_output_base:
+        if args.a_midi or args.b_midi or args.stage2_plan:
+            parser.error("--stage1-output-base cannot be combined with A/B positional paths or --stage2-plan")
+        discovered = resolve_stage1_inputs(args.stage1_output_base, Path(__file__).resolve().parent)
+        args.a_midi, args.b_midi, args.stage2_plan = (
+            discovered.a_midi, discovered.b_midi, discovered.stage2_plan
+        )
+    elif not args.a_midi or not args.b_midi:
+        parser.error("provide A.mid and B.mid, or use --stage1-output-base")
     run_pipeline(
         args.a_midi, args.b_midi, args.bpm, args.time_signature, args.output,
         model_name=args.model, seed=args.seed, resume=args.resume, stage2_plan=args.stage2_plan,
+        heartbeat_packages=tuple(args.heartbeat_package), stage3_render_plan=args.stage3_render_plan,
     )
     return 0
 

@@ -11,7 +11,7 @@ from pathlib import Path
 import numpy as np
 from scipy.io import wavfile
 
-from stage3_midi_renderer.cli import build_parser
+from stage3_midi_renderer.cli import build_parser, load_stage2_handoff
 from stage3_midi_renderer.package_renderer import load_render_plan, render_with_packages
 from stage3_midi_renderer.renderer import Stage3RenderError
 from stage3_midi_renderer.tests.test_renderer import soundfont_bytes, track
@@ -155,6 +155,29 @@ class PackageRendererTests(unittest.TestCase):
         self.assertEqual(args.command, "render-packages")
         self.assertEqual(args.heartbeat_package, ["a=A", "b=B"])
         self.assertEqual(args.sample_rate, 48_000)
+
+    def test_stage2_handoff_resolves_and_hash_checks_all_stage3_inputs(self):
+        import os
+        handoff = self.root / "stage3_handoff.json"
+        handoff.write_text(json.dumps({
+            "schema_version": "stage2-stage3-handoff-v1",
+            "stage2_status": "test",
+            "complete_midi": {"path": self.midi.name, "sha256": _sha256(self.midi)},
+            "heartbeat_packages": [{
+                "id": "a", "path": os.path.relpath(self.a, self.root),
+                "manifest_sha256": _sha256(self.a / "heartbeat_manifest.json"),
+            }],
+            "render_plan": {"path": self.plan.name, "sha256": _sha256(self.plan)},
+        }), encoding="utf-8")
+        midi, plan, bindings = load_stage2_handoff(handoff)
+        self.assertEqual(midi, self.midi)
+        self.assertEqual(plan, self.plan)
+        self.assertEqual(bindings, {"a": self.a})
+        args = build_parser().parse_args([
+            "render-packages", "--stage2-handoff", str(handoff),
+            "--general-sf2", str(self.sf2),
+        ])
+        self.assertEqual(args.stage2_handoff, handoff)
 
 
 if __name__ == "__main__":

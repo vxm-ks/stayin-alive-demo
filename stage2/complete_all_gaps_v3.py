@@ -16,10 +16,8 @@ complete_all_gaps_v3.py
 ==============
 1. 本程序的输入只有 combined_with_drums.mid。
 2. BPM、拍号、PPQ、总小节数都从输入 MIDI 自动读取。
-3. A、B、第二次 A 都固定为 4 小节。
-4. BPM <= 100 时，每段空白为 12 小节。
-5. BPM > 100 时，每段空白为 28 小节。
-6. BPM = 100 时按 12 小节处理。
+3. 当前测试状态下，A、B、第二次 A 都固定为 8 小节。
+4. 每段空白固定为 8 小节，形成 8+8。
 7. 空白1按照前面的 A 续写。
 8. 空白2按照前面的 B 续写。
 9. 空白3按照前面的第二次 A 续写。
@@ -43,21 +41,13 @@ complete_all_gaps_v3.py
 ============
 MIDI-GPT 使用从 0 开始的小节编号。
 
-当 BPM <= 100：
-    A：       0–3
-    空白1：   4–15
-    B：      16–19
-    空白2：  20–31
-    A：      32–35
-    空白3：  36–47
-
-当 BPM > 100：
-    A：       0–3
-    空白1：   4–31
-    B：      32–35
-    空白2：  36–63
-    A：      64–67
-    空白3：  68–95
+当前测试状态：
+    A：       0–7
+    空白1：   8–15
+    B：      16–23
+    空白2：  24–31
+    A：      32–39
+    空白3：  40–47
 
 运行示例
 ========
@@ -84,8 +74,9 @@ from midigpt.inference import (
 # 固定参数
 # ------------------------------------------------------------
 
-# A、B、第二次 A 都固定为 4 小节。
-SEGMENT_BARS = 4
+# 当前 Stage 2 测试状态：8 小节主题 + 8 小节扩写。
+SEGMENT_BARS = 8
+GAP_BARS = 8
 
 # 每次让 MIDI-GPT 生成 4 小节。
 BLOCK_BARS = 4
@@ -512,7 +503,7 @@ def split_into_blocks(
         [8,9,10,11]
         [12,13,14,15]
 
-    当前空白长度固定为 12 或 28，都能被 4 整除。
+    当前测试状态的空白长度固定为 8，可拆成两个 4 小节块。
     """
     total = end_bar - start_bar + 1
 
@@ -1098,8 +1089,7 @@ def complete_all_gaps(
     )
     bpm = detect_bpm(working_score)
 
-    # BPM = 100 时使用 12 小节。
-    gap_bars = 28 if bpm > 100 else 12
+    gap_bars = GAP_BARS
     expected_total_bars = (
         3 * SEGMENT_BARS + 3 * gap_bars
     )

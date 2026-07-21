@@ -11,12 +11,12 @@ combine_midi_with_drums.py
     A → 空白 → B → 空白 → A → 空白
 
 我们已经约定好的规则：
-1. A 和 B 都是 4 小节，程序不负责裁剪。
+1. 当前测试状态下，A 和 B 都是 8 小节，程序不负责裁剪。
 2. A、B 的所有音乐轨道都保留。
 3. A 和 B 的 PPQ 必须一致。
-4. BPM <= 100 时，每段音乐后留空 12 小节。
-5. BPM > 100 时，每段音乐后留空 28 小节。
-6. BPM = 100 时，按照 12 小节处理。
+4. 每段音乐后固定留空 8 小节，形成每段 8+8。
+5. 复制输入素材前，检测并移除其所有 MIDI 通道 10 消息。
+6. 再按 Stage 1 计划生成新的通道 10 心跳事件。
 7. 鼓点贯穿整首 MIDI，包括音乐片段和空白部分。
 8. 每一拍放置一个相同的闭镲鼓点。
 9. 闭镲使用 General MIDI 音高 42。
@@ -41,8 +41,9 @@ import mido
 from mido import Message, MetaMessage, MidiFile, MidiTrack
 
 
-# A、B 每个音乐片段固定为 4 小节。
-SEGMENT_BARS = 4
+# 当前 Stage 2 测试状态：每个主题 8 小节，随后填充 8 小节。
+SEGMENT_BARS = 8
+GAP_BARS = 8
 
 # General MIDI 中，42 表示 Closed Hi-Hat（闭镲）。
 HI_HAT_NOTE = 42
@@ -148,6 +149,10 @@ def build_shifted_track(
             "set_tempo",
             "time_signature",
         }:
+            continue
+        # 输入素材中的通道 10 不是当前计划的权威。全部移除后，
+        # 再由 build_heartbeat_track_from_plan 确定性填入 S1/S2。
+        if getattr(original, "channel", None) == DRUM_CHANNEL:
             continue
 
         message = copy.copy(original)
@@ -377,20 +382,17 @@ def combine_midi_with_drums(
     for label, midi in (("A.mid", a_midi), ("B.mid", b_midi)):
         end_tick = max((sum(message.time for message in track) for track in midi.tracks), default=0)
         if end_tick > SEGMENT_BARS * bar_ticks:
-            raise ValueError(f"{label} exceeds the protected four-bar motif boundary")
+            raise ValueError(f"{label} exceeds the protected eight-bar motif boundary")
 
-    # 固定空白规则：
-    # BPM > 100：28 小节
-    # BPM <= 100：12 小节
-    # 所以 BPM = 100 时也是 12 小节。
-    gap_bars = 28 if bpm > 100 else 12
+    # 当前测试状态固定为每段 8 小节主题 + 8 小节填充。
+    gap_bars = GAP_BARS
 
     # 程序内部小节位置从 0 开始。
     a1_start_bar = 0
     b1_start_bar = SEGMENT_BARS + gap_bars
     a2_start_bar = 2 * SEGMENT_BARS + 2 * gap_bars
 
-    # 3 个音乐片段，每个 4 小节；再加 3 段空白。
+    # 3 个音乐片段，每个 8 小节；再加 3 段 8 小节空白。
     total_bars = 3 * SEGMENT_BARS + 3 * gap_bars
 
     # Type 1 表示多轨 MIDI。
@@ -478,7 +480,8 @@ def combine_midi_with_drums(
     print(f"每段空白：{gap_bars} 小节")
     print(f"总长度：{total_bars} 小节")
     print("结构：A - 空白 - B - 空白 - A - 空白")
-    print("鼓轨：闭镲，每拍一次，力度 80")
+    print("状态：TEST（每段 8 小节主题 + 8 小节填充）")
+    print("通道 10：已移除输入原有消息，并按计划重新填充")
     print("闭镲时长：一拍的八分之一")
 
 

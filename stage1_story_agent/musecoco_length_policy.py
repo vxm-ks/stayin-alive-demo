@@ -8,6 +8,7 @@ from typing import Any
 
 DEFAULT_OUTPUT_BARS = 8
 DEFAULT_GENERATION_BARS = 12
+DEFAULT_EXTENSION_BARS = 8
 
 
 def apply_musecoco_output_bars(payload: Any, output_bars: int) -> Any:

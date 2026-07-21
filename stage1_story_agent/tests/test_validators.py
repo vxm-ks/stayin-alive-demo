@@ -44,7 +44,7 @@ class DraftValidatorTests(unittest.TestCase):
 
     def test_rejects_seed_longer_than_introduction(self):
         data = copy.deepcopy(draft_data())
-        data["theme_families"][0]["seed_bars"] = 9
+        data["form_sections"][0]["bar_count"] = 7
         self.assert_code(data, "THEME_SEED_TOO_LONG")
 
     def test_rejects_global_choice_outside_request(self):
@@ -77,7 +77,7 @@ class DraftValidatorTests(unittest.TestCase):
         draft = LLMContentPlanDraft.model_validate(test_mode_draft_data())
         result = validate_and_compile_draft(make_test_mode_request(), draft)
         self.assertEqual(result.form_plan.form_string, "A-B-A")
-        self.assertEqual([item.bar_count for item in result.form_plan.sections], [8, 16, 8])
+        self.assertEqual([item.bar_count for item in result.form_plan.sections], [16, 16, 16])
         self.assertEqual(result.theme_family_ids, ["theme-A", "theme-B"])
         self.assertEqual(result.variation_tasks, [])
 

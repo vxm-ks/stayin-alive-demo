@@ -16,7 +16,7 @@ def section(
     relation: str = "introduce",
     variant: int = 0,
     source: str | None = None,
-    bars: int = 8,
+    bars: int = 16,
 ) -> LLMFormSection:
     return LLMFormSection(
         section_id=f"S{number}",
@@ -55,9 +55,9 @@ class FormCompilerTests(unittest.TestCase):
                 section(1, "A"),
                 section(2, "B"),
                 section(3, "A", relation="variation", variant=1, source="S1"),
-                section(4, "C", bars=16),
+                section(4, "C"),
             ],
-            constraints(40, 4),
+            constraints(64, 4),
         )
 
         self.assertEqual(result.form_plan.form_string, "A-B-A'-C")
@@ -70,7 +70,7 @@ class FormCompilerTests(unittest.TestCase):
                 (item.bar_start, item.bar_end)
                 for item in result.form_plan.sections
             ],
-            [(1, 8), (9, 16), (17, 24), (25, 40)],
+            [(1, 16), (17, 32), (33, 48), (49, 64)],
         )
         self.assertEqual(
             [item.material_source.value for item in result.form_plan.sections],
@@ -86,7 +86,7 @@ class FormCompilerTests(unittest.TestCase):
         self.assertEqual(task.target_section_id, "S3")
         self.assertEqual(task.source_section_id, "S1")
         self.assertEqual(task.theme_family_id, "theme-A")
-        self.assertEqual(task.target_bars, 8)
+        self.assertEqual(task.target_bars, 16)
 
     def test_reprise_reuses_theme_without_variation_task(self):
         result = compile_form(
@@ -95,7 +95,7 @@ class FormCompilerTests(unittest.TestCase):
                 section(2, "B"),
                 section(3, "A", relation="reprise", source="S1"),
             ],
-            constraints(24, 3),
+            constraints(48, 3),
         )
 
         self.assertEqual(result.form_plan.form_string, "A-B-A")
@@ -117,7 +117,7 @@ class FormCompilerTests(unittest.TestCase):
                     source="S1",
                 ),
             ],
-            constraints(16, 2, max_theme_families=1),
+            constraints(32, 2, max_theme_families=1),
         )
 
         self.assertEqual(
@@ -127,13 +127,16 @@ class FormCompilerTests(unittest.TestCase):
 
     def test_rejects_total_bar_mismatch(self):
         with self.assertRaises(FormValidationError) as caught:
-            compile_form([section(1, "A")], constraints(16, 1))
+            compile_form(
+                [section(1, "A", bars=15), section(2, "B")],
+                constraints(32, 2),
+            )
         self.assertEqual(caught.exception.code, "FORM_BAR_TOTAL_MISMATCH")
 
     def test_rejects_nonsequential_section_ids(self):
         bad = section(2, "A")
         with self.assertRaises(FormValidationError) as caught:
-            compile_form([bad], constraints(8, 1))
+            compile_form([bad], constraints(16, 1))
         self.assertEqual(
             caught.exception.code,
             "FORM_SECTION_ID_SEQUENCE_INVALID",
@@ -143,7 +146,7 @@ class FormCompilerTests(unittest.TestCase):
         with self.assertRaises(FormValidationError) as caught:
             compile_form(
                 [section(1, "A"), section(2, "C")],
-                constraints(16, 2),
+                constraints(32, 2),
             )
         self.assertEqual(caught.exception.code, "FORM_SYMBOL_ORDER_INVALID")
 
@@ -160,7 +163,7 @@ class FormCompilerTests(unittest.TestCase):
                     ),
                     section(2, "A"),
                 ],
-                constraints(16, 2, max_theme_families=1),
+                constraints(32, 2, max_theme_families=1),
             )
         self.assertEqual(caught.exception.code, "THEME_FAMILY_MISSING")
 
@@ -172,18 +175,16 @@ class FormCompilerTests(unittest.TestCase):
                     section(2, "A", relation="variation", variant=1, source="S3"),
                     section(3, "A", relation="reprise", source="S1"),
                 ],
-                constraints(24, 3, max_theme_families=1),
+                constraints(48, 3, max_theme_families=1),
             )
         self.assertEqual(caught.exception.code, "FORM_SOURCE_NOT_EARLIER")
 
     def test_single_section_can_keep_default_family_limit(self):
         result = compile_form(
-            [section(1, "A", bars=4)],
+            [section(1, "A")],
             StoryPlanConstraints(
-                total_bars=4,
+                total_bars=16,
                 target_form_sections=1,
-                musecoco_output_bars=4,
-                musecoco_generation_bars=4,
             ),
         )
         self.assertEqual(result.form_plan.form_string, "A")
@@ -191,14 +192,14 @@ class FormCompilerTests(unittest.TestCase):
 
     def test_llm_may_choose_one_a_section_when_target_count_is_unspecified(self):
         result = compile_form(
-            [section(1, "A", bars=12)],
-            StoryPlanConstraints(total_bars=12),
+            [section(1, "A")],
+            StoryPlanConstraints(total_bars=16),
         )
         self.assertEqual(result.form_plan.form_string, "A")
         self.assertEqual(len(result.form_plan.sections), 1)
         self.assertEqual(
             (result.form_plan.sections[0].bar_start, result.form_plan.sections[0].bar_end),
-            (1, 12),
+            (1, 16),
         )
         self.assertEqual(result.variation_tasks, [])
 
@@ -210,7 +211,7 @@ class FormCompilerTests(unittest.TestCase):
                     section(2, "B"),
                     section(3, "B", relation="variation", variant=1, source="S1"),
                 ],
-                constraints(24, 3),
+                constraints(48, 3),
             )
         self.assertEqual(caught.exception.code, "FORM_SOURCE_FAMILY_MISMATCH")
 
@@ -218,7 +219,7 @@ class FormCompilerTests(unittest.TestCase):
         with self.assertRaises(FormValidationError) as caught:
             compile_form(
                 [section(1, "A"), section(2, "A")],
-                constraints(16, 2, max_theme_families=1),
+                constraints(32, 2, max_theme_families=1),
             )
         self.assertEqual(caught.exception.code, "THEME_FAMILY_DUPLICATE")
 
@@ -231,7 +232,7 @@ class FormCompilerTests(unittest.TestCase):
                     section(3, "A", relation="variation", variant=2, source="S1"),
                 ],
                 constraints(
-                    24,
+                    48,
                     3,
                     max_theme_families=1,
                     max_variants_per_family=1,

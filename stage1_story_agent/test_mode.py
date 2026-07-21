@@ -5,8 +5,8 @@ from __future__ import annotations
 import copy
 from typing import Any
 
-TEST_MODE_TOTAL_BARS = 32
-TEST_MODE_SECTION_BARS = (8, 16, 8)
+TEST_MODE_TOTAL_BARS = 48
+TEST_MODE_SECTION_BARS = (16, 16, 16)
 TEST_MODE_FORM_LABELS = ("A", "B", "A")
 TEST_MODE_TONIC = "C"
 TEST_MODE_MODE = "minor"
@@ -83,7 +83,7 @@ TEST_MODE_RULES = {
             "B": {"instruments": ["violin"], "artist": "schubert"},
         },
     },
-    "stage2": {"input_motif_bars": 8, "drum_patterns": list(TEST_MODE_DRUM_PATTERNS), "section_tensions": TEST_MODE_SECTION_TENSIONS, "section_tempos_bpm": [96, 96, 96], "midigpt_access": ["fixed", "extension_only", "fixed"]},
+    "stage2": {"input_motif_bars": 8, "default_extension_bars": 8, "drum_patterns": list(TEST_MODE_DRUM_PATTERNS), "section_tensions": TEST_MODE_SECTION_TENSIONS, "section_tempos_bpm": [96, 96, 96], "midigpt_access": ["extension_only", "extension_only", "extension_only"]},
     "heartbeat": {"low_tension": {"trigger_mode": "once_per_bar", "heart_sounds": ["S1", "S2"]}, "high_tension_below_110_bpm": {"trigger_mode": "every_beat", "heart_sounds": ["S1"]}},
     "theme_families": ["A", "B"],
 }
@@ -98,12 +98,7 @@ def test_mode_rules(
     rules = copy.deepcopy(TEST_MODE_RULES)
     rules["melodic_profile"]["seed_bars"] = output_bars
     rules["stage2"]["input_motif_bars"] = output_bars
-    rules["stage2"]["midigpt_access"] = [
-        "fixed"
-        if index == 2 or bars == output_bars
-        else "extension_only"
-        for index, bars in enumerate(TEST_MODE_SECTION_BARS)
-    ]
+    rules["stage2"]["midigpt_access"] = ["extension_only"] * len(TEST_MODE_SECTION_BARS)
     rules["musecoco_lengths"] = {
         "generation_target_bars": generation_bars,
         "output_motif_bars": output_bars,

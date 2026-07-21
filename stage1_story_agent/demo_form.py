@@ -10,7 +10,7 @@ from .models import LLMFormSection, StoryPlanConstraints
 
 def build_demo() -> dict[str, object]:
     constraints = StoryPlanConstraints(
-        total_bars=40,
+        total_bars=64,
         target_form_sections=4,
         max_theme_families=4,
         max_variants_per_family=2,
@@ -22,7 +22,7 @@ def build_demo() -> dict[str, object]:
             variant_index=0,
             relation="introduce",
             source_section_id=None,
-            bar_count=8,
+            bar_count=16,
             tempo_bpm=88,
             narrative_segment_ids=["N1"],
             musical_intent="Establish the restrained main theme.",
@@ -33,7 +33,7 @@ def build_demo() -> dict[str, object]:
             variant_index=0,
             relation="introduce",
             source_section_id=None,
-            bar_count=8,
+            bar_count=16,
             tempo_bpm=104,
             narrative_segment_ids=["N2"],
             musical_intent="Introduce a contrasting, more tense theme.",
@@ -44,7 +44,7 @@ def build_demo() -> dict[str, object]:
             variant_index=1,
             relation="variation",
             source_section_id="S1",
-            bar_count=8,
+            bar_count=16,
             tempo_bpm=100,
             narrative_segment_ids=["N3"],
             musical_intent="Retain A's identity while increasing density and tension.",

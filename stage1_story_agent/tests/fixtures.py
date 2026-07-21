@@ -11,7 +11,7 @@ def request_data() -> dict:
         "story_text": "平静开场后冲突出现，旧日信念以新的方式回归，最终作出决定。",
         "language": "zh-CN",
         "constraints": {
-            "total_bars": 40,
+            "total_bars": 64,
             "target_form_sections": 4,
             "max_theme_families": 4,
             "max_variants_per_family": 2,
@@ -55,9 +55,9 @@ def draft_data() -> dict:
             ],
         },
         "form_sections": [
-            {"section_id": "S1", "base_symbol": "A", "variant_index": 0, "relation": "introduce", "source_section_id": None, "bar_count": 8, "tempo_bpm": 88, "narrative_segment_ids": ["N1"], "musical_intent": "建立克制的主主题"},
-            {"section_id": "S2", "base_symbol": "B", "variant_index": 0, "relation": "introduce", "source_section_id": None, "bar_count": 8, "tempo_bpm": 104, "narrative_segment_ids": ["N2"], "musical_intent": "形成对比并提高张力"},
-            {"section_id": "S3", "base_symbol": "A", "variant_index": 1, "relation": "variation", "source_section_id": "S1", "bar_count": 8, "tempo_bpm": 100, "narrative_segment_ids": ["N3"], "musical_intent": "保留 A 身份并提高密度"},
+            {"section_id": "S1", "base_symbol": "A", "variant_index": 0, "relation": "introduce", "source_section_id": None, "bar_count": 16, "tempo_bpm": 88, "narrative_segment_ids": ["N1"], "musical_intent": "建立克制的主主题"},
+            {"section_id": "S2", "base_symbol": "B", "variant_index": 0, "relation": "introduce", "source_section_id": None, "bar_count": 16, "tempo_bpm": 104, "narrative_segment_ids": ["N2"], "musical_intent": "形成对比并提高张力"},
+            {"section_id": "S3", "base_symbol": "A", "variant_index": 1, "relation": "variation", "source_section_id": "S1", "bar_count": 16, "tempo_bpm": 100, "narrative_segment_ids": ["N3"], "musical_intent": "保留 A 身份并提高密度"},
             {"section_id": "S4", "base_symbol": "C", "variant_index": 0, "relation": "introduce", "source_section_id": None, "bar_count": 16, "tempo_bpm": 92, "narrative_segment_ids": ["N4"], "musical_intent": "引入最终抉择的新主题"},
         ],
         "theme_families": [
@@ -90,15 +90,15 @@ def test_mode_draft_data() -> dict:
     data = draft_data()
     data["story_analysis"]["narrative_segments"] = data["story_analysis"]["narrative_segments"][:3]
     data["form_sections"] = data["form_sections"][:3]
-    data["form_sections"][0]["bar_count"] = 8
+    data["form_sections"][0]["bar_count"] = 16
     data["form_sections"][1]["bar_count"] = 16
     data["form_sections"][2].update(
         {
             "variant_index": 0,
             "relation": "reprise",
             "source_section_id": "S1",
-            "bar_count": 8,
-            "musical_intent": "精确再现 A",
+            "bar_count": 16,
+            "musical_intent": "再现8小节A主题并续写8小节",
         }
     )
     data["theme_families"] = data["theme_families"][:2]

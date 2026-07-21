@@ -125,7 +125,7 @@ class DeepSeekIntegrationTests(unittest.TestCase):
             [["piano"], ["violin"]],
         )
         self.assertEqual(run.content_plan.provenance.provider, "deepseek")
-        self.assertEqual(run.content_plan.provenance.prompt_version, "stage1-form-v7")
+        self.assertEqual(run.content_plan.provenance.prompt_version, "stage1-form-v8")
 
 
 if __name__ == "__main__":

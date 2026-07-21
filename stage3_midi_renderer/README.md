@@ -2,12 +2,26 @@
 
 Stage 3 读取第二阶段输出的完整 MIDI。完整 MIDI 是节奏、速度、S1/S2 类型和事件位置的唯一权威；Stage 3 不生成、移动或删除心跳事件，也不对真实心音做时间拉伸或移调。
 
+Stage 3 不假定固定曲式或固定总小节数。当前 Stage 1 测试模式会产生 48 小节 `A-B-A`（每段 8 小节主题加 8 小节填充），正式模式的段落标签和数量可变；只要 Stage 2 交付的是包含音乐轨与既有心跳轨的完整合规 MIDI，Stage 3 就按 MIDI 自身的终点、速度和拍号统一渲染。48 小节输入已纳入离线回归测试。
+
 模块保留两条兼容工作流：
 
 - `render`：旧版单心跳 SoundFont，一次 FluidSynth 渲染。
 - `render-packages`：新版多 `heartbeat_package` 渲染，支持按 plan 选择/轮换真实 S1/S2 样本，并独立控制音乐与心跳响度。
 
 ## 推荐：多 package 渲染
+
+如果 Stage 2 已生成 `stage3_handoff.json`，推荐直接使用自动交接入口。完整 MIDI、render plan 与 heartbeat packages 都会从 handoff 解析并重新校验 SHA-256：
+
+```powershell
+D:\conda\python.exe -m stage3_midi_renderer render-packages `
+  --stage2-handoff ".\stage2\outputs\story-001\stage3_handoff.json" `
+  --general-sf2 "D:\soundfonts\general.sf2" `
+  --output-dir ".\stage3_midi_renderer\outputs\story-001" `
+  --fluidsynth ".\tools\fluidsynth\bin\fluidsynth.exe"
+```
+
+通用乐器 SF2 仍由 Stage 3 明确传入，因为它不是 Stage 1 患者心音资产。以下手动参数方式继续保留。
 
 先复制并修改 [`examples/stage3_render_plan.example.json`](examples/stage3_render_plan.example.json)。命令中的 package ID 必须与 plan 的 `package_ids` 完全一致：
 

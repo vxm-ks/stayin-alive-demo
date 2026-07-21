@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
@@ -18,6 +19,56 @@ from .heartbeat_conditioning import (
 from .renderer import Stage3RenderError, render_complete_midi, validate_render_inputs
 from .package_renderer import parse_package_binding, render_with_packages
 from .batch_validator import LoudnessLimits, batch_validate_midis
+
+
+def _sha256(path: Path) -> str:
+    return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def load_stage2_handoff(path: Path) -> tuple[Path, Path, dict[str, Path]]:
+    """Resolve and hash-check the automated Stage 2 -> Stage 3 handoff."""
+    source = path.expanduser().resolve()
+    try:
+        data = json.loads(source.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise Stage3RenderError(f"invalid Stage 2 handoff: {exc}") from exc
+    if data.get("schema_version") != "stage2-stage3-handoff-v1":
+        raise Stage3RenderError("unsupported Stage 2 handoff schema")
+    if data.get("stage2_status") != "test":
+        raise Stage3RenderError("Stage 2 handoff must declare the current test status")
+    if data.get("heartbeat_channel") != 10 or data.get("note_map") != {"36": "S1", "38": "S2"}:
+        raise Stage3RenderError("Stage 2 handoff heartbeat channel or note map differs from contract")
+    midi_entry = data.get("complete_midi")
+    plan_entry = data.get("render_plan")
+    packages = data.get("heartbeat_packages")
+    if not isinstance(midi_entry, dict) or not isinstance(plan_entry, dict):
+        raise Stage3RenderError("Stage 2 handoff lacks complete_midi or render_plan")
+    if not isinstance(packages, list) or not packages:
+        raise Stage3RenderError("Stage 2 handoff contains no heartbeat packages")
+
+    def checked_file(entry: dict, label: str) -> Path:
+        candidate = (source.parent / str(entry.get("path", ""))).resolve()
+        if not candidate.is_file():
+            raise Stage3RenderError(f"{label} not found: {candidate}")
+        if entry.get("sha256") != _sha256(candidate):
+            raise Stage3RenderError(f"{label} hash mismatch")
+        return candidate
+
+    midi = checked_file(midi_entry, "complete MIDI")
+    render_plan = checked_file(plan_entry, "Stage 3 render plan")
+    bindings: dict[str, Path] = {}
+    for entry in packages:
+        if not isinstance(entry, dict) or not isinstance(entry.get("id"), str):
+            raise Stage3RenderError("invalid heartbeat package entry in Stage 2 handoff")
+        package_id = entry["id"]
+        package = (source.parent / str(entry.get("path", ""))).resolve()
+        manifest = package / "heartbeat_manifest.json"
+        if package_id in bindings or not manifest.is_file():
+            raise Stage3RenderError(f"invalid or duplicate heartbeat package: {package_id}")
+        if entry.get("manifest_sha256") != _sha256(manifest):
+            raise Stage3RenderError(f"heartbeat package manifest hash mismatch: {package_id}")
+        bindings[package_id] = package
+    return midi, render_plan, bindings
 
 
 def _common(parser: argparse.ArgumentParser) -> None:
@@ -54,11 +105,13 @@ def build_parser() -> argparse.ArgumentParser:
         "render-packages",
         help="render complete MIDI with one or more real-heartbeat packages and independent balance",
     )
-    packages.add_argument("--input-midi", type=Path, required=True, help="complete Stage 2 MIDI")
+    packages_input = packages.add_mutually_exclusive_group(required=True)
+    packages_input.add_argument("--input-midi", type=Path, help="complete Stage 2 MIDI")
+    packages_input.add_argument("--stage2-handoff", type=Path, help="hash-checked Stage 2 automated handoff")
     packages.add_argument("--general-sf2", type=Path, required=True, help="general instrument SoundFont")
-    packages.add_argument("--render-plan", type=Path, required=True, help="Stage 3 package/mix JSON plan")
+    packages.add_argument("--render-plan", type=Path, help="Stage 3 package/mix JSON plan")
     packages.add_argument(
-        "--heartbeat-package", action="append", required=True, metavar="ID=PATH",
+        "--heartbeat-package", action="append", metavar="ID=PATH",
         help="repeatable heartbeat package binding used by the render plan",
     )
     packages.add_argument("--output-dir", type=Path)
@@ -152,16 +205,28 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(result.as_dict(), ensure_ascii=False, indent=2))
             return 0
         if args.command == "render-packages":
-            bindings: dict[str, Path] = {}
-            for value in args.heartbeat_package:
-                package_id, package_path = parse_package_binding(value)
-                if package_id in bindings:
-                    raise Stage3RenderError(f"duplicate heartbeat package ID: {package_id}")
-                bindings[package_id] = package_path
+            if args.stage2_handoff:
+                if args.render_plan or args.heartbeat_package:
+                    raise Stage3RenderError(
+                        "--stage2-handoff cannot be combined with --render-plan or --heartbeat-package"
+                    )
+                input_midi, render_plan, bindings = load_stage2_handoff(args.stage2_handoff)
+            else:
+                if not args.render_plan or not args.heartbeat_package:
+                    raise Stage3RenderError(
+                        "manual render-packages requires --render-plan and --heartbeat-package"
+                    )
+                input_midi, render_plan = args.input_midi, args.render_plan
+                bindings = {}
+                for value in args.heartbeat_package:
+                    package_id, package_path = parse_package_binding(value)
+                    if package_id in bindings:
+                        raise Stage3RenderError(f"duplicate heartbeat package ID: {package_id}")
+                    bindings[package_id] = package_path
             result = render_with_packages(
-                args.input_midi,
+                input_midi,
                 args.general_sf2,
-                args.render_plan,
+                render_plan,
                 bindings,
                 args.output_dir or _default_output(),
                 fluidsynth=args.fluidsynth,

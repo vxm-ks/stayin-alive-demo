@@ -10,7 +10,7 @@ from stage1_story_agent.tests.fixtures import draft_data, make_draft, make_reque
 
 class ModelTests(unittest.TestCase):
     def test_complete_draft_and_request_validate(self):
-        self.assertEqual(make_request().constraints.total_bars, 40)
+        self.assertEqual(make_request().constraints.total_bars, 64)
         self.assertEqual(len(make_draft().theme_families), 3)
 
     def test_draft_rejects_program_derived_fields(self):
@@ -28,7 +28,7 @@ class ModelTests(unittest.TestCase):
         request = make_test_mode_request()
         constraints = request.constraints
         self.assertTrue(request.test_mode)
-        self.assertEqual(constraints.total_bars, 32)
+        self.assertEqual(constraints.total_bars, 48)
         self.assertEqual(constraints.target_form_sections, 3)
         self.assertEqual(constraints.max_theme_families, 2)
         self.assertEqual(constraints.max_variants_per_family, 0)
@@ -38,18 +38,19 @@ class ModelTests(unittest.TestCase):
         self.assertEqual(constraints.allowed_tonics, ["C"])
         self.assertEqual(constraints.musecoco_output_bars, 8)
         self.assertEqual(constraints.musecoco_generation_bars, 12)
+        self.assertEqual(constraints.default_extension_bars, 8)
 
-    def test_test_mode_preserves_configurable_musecoco_lengths(self):
+    def test_test_mode_forces_eight_bar_motif_and_preserves_generation_length(self):
         payload = make_test_mode_request().model_dump(mode="json", by_alias=True)
         payload["constraints"]["musecoco_output_bars"] = 6
         payload["constraints"]["musecoco_generation_bars"] = 10
         request = StoryPlanRequest.model_validate(payload)
-        self.assertEqual(request.constraints.musecoco_output_bars, 6)
+        self.assertEqual(request.constraints.musecoco_output_bars, 8)
         self.assertEqual(request.constraints.musecoco_generation_bars, 10)
 
         payload["constraints"]["musecoco_output_bars"] = 9
-        with self.assertRaisesRegex(ValidationError, "must not exceed 8"):
-            StoryPlanRequest.model_validate(payload)
+        request = StoryPlanRequest.model_validate(payload)
+        self.assertEqual(request.constraints.musecoco_output_bars, 8)
 
 
 if __name__ == "__main__":

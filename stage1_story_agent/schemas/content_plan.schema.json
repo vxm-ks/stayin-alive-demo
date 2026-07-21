@@ -652,8 +652,8 @@
           "type": "integer"
         },
         "prompt_version": {
-          "const": "stage1-form-v7",
-          "default": "stage1-form-v7",
+          "const": "stage1-form-v8",
+          "default": "stage1-form-v8",
           "title": "Prompt Version",
           "type": "string"
         },

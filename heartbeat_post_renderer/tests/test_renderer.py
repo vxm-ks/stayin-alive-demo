@@ -108,7 +108,7 @@ def _write_final_midi(path: Path, plan, *, omit_last: bool = False) -> int:
             numerator=4,
             denominator=4,
             tracks=[MidiTrack("Heartbeat Trigger", 0, "drum", notes)],
-            end_tick=32 * 4 * ppq,
+            end_tick=plan.sections[-1].bar_end * 4 * ppq,
         )
     )
     return len(notes)
@@ -142,9 +142,9 @@ class HeartbeatPostRendererTests(unittest.TestCase):
                 render_diagnostics=False,
             )
 
-            self.assertEqual(trigger_count, 80)
-            self.assertEqual(result.trigger_count, 80)
-            self.assertEqual(result.event_count, 96)
+            self.assertEqual(trigger_count, 96)
+            self.assertEqual(result.trigger_count, 96)
+            self.assertEqual(result.event_count, 128)
             self.assertTrue(result.heartbeat_wav.is_file())
             self.assertTrue(result.heartbeat_midi.is_file())
             audio = audio_diagnostics.load_wav(result.heartbeat_wav)
@@ -153,11 +153,11 @@ class HeartbeatPostRendererTests(unittest.TestCase):
                 result.heartbeat_midi,
                 trigger_notes=(36, 38),
             )
-            self.assertEqual(len(rendered_midi.triggers), 96)
+            self.assertEqual(len(rendered_midi.triggers), 128)
             manifest = json.loads(result.manifest_json.read_text(encoding="utf-8"))
             self.assertEqual(manifest["story_id"], "test-mode-story")
-            self.assertEqual(manifest["render"]["s1_count"], 80)
-            self.assertEqual(manifest["render"]["s2_count"], 16)
+            self.assertEqual(manifest["render"]["s1_count"], 96)
+            self.assertEqual(manifest["render"]["s2_count"], 32)
             self.assertFalse(manifest["policy"]["time_stretch"])
 
     def test_rejects_final_drum_track_that_no_longer_matches_plan(self):

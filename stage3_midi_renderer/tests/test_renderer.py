@@ -54,6 +54,32 @@ def midi_bytes(*, heartbeat_note: int = 36) -> bytes:
     return header + conductor + music + heartbeat
 
 
+def forty_eight_bar_midi_bytes() -> bytes:
+    """Build a complete 4/4 MIDI spanning the Stage 1 test plan's 48 bars."""
+    ppq = 480
+    end_tick = 48 * 4 * ppq
+    header = b"MThd" + struct.pack(">IHHH", 6, 1, 3, ppq)
+    conductor = track([
+        (0, b"\xff\x51\x03\x09\x89\x68"),
+        (0, b"\xff\x58\x04\x04\x02\x18\x08"),
+        (end_tick, b"\xff\x2f\x00"),
+    ])
+    music = track([
+        (0, b"\xc0\x00"),
+        (0, b"\x90\x3c\x64"),
+        (480, b"\x80\x3c\x00"),
+        (end_tick - 480, b"\xff\x2f\x00"),
+    ])
+    heartbeat = track([
+        (0, b"\x99\x24\x64"),
+        (120, b"\x89\x24\x00"),
+        (end_tick - 600, b"\x99\x26\x55"),
+        (120, b"\x89\x26\x00"),
+        (360, b"\xff\x2f\x00"),
+    ])
+    return header + conductor + music + heartbeat
+
+
 def riff_chunk(tag: bytes, payload: bytes) -> bytes:
     return tag + struct.pack("<I", len(payload)) + payload + (b"\x00" if len(payload) & 1 else b"")
 
@@ -87,6 +113,14 @@ class Stage3RendererTests(unittest.TestCase):
     def test_complete_midi_requires_music_and_existing_heartbeat(self):
         result = inspect_complete_midi(self.midi)
         self.assertEqual(result.track_count, 3)
+        self.assertEqual(result.music_note_on_count, 1)
+        self.assertEqual(result.heartbeat_note_on_count, 2)
+        self.assertEqual(result.heartbeat_notes, (36, 38))
+
+    def test_accepts_complete_forty_eight_bar_stage1_test_form(self):
+        self.midi.write_bytes(forty_eight_bar_midi_bytes())
+        result = inspect_complete_midi(self.midi)
+        self.assertEqual(result.end_tick, 48 * 4 * 480)
         self.assertEqual(result.music_note_on_count, 1)
         self.assertEqual(result.heartbeat_note_on_count, 2)
         self.assertEqual(result.heartbeat_notes, (36, 38))

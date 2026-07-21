@@ -102,10 +102,26 @@ def compile_stage2_handoff(
         full_range = BarRange(bar_start=compiled.bar_start, bar_end=compiled.bar_end)
 
         if compiled.relation is FormRelation.REPRISE:
-            access = "fixed"
-            method = "reuse_source_section"
-            protected = [full_range]
-            editable: list[BarRange] = []
+            if extension_bars == 0:
+                access = "fixed"
+                method = "reuse_source_section"
+                protected = [full_range]
+                editable: list[BarRange] = []
+            else:
+                access = "extension_only"
+                method = "midigpt_extend"
+                protected = [
+                    BarRange(
+                        bar_start=compiled.bar_start,
+                        bar_end=compiled.bar_start + input_bars - 1,
+                    )
+                ]
+                editable = [
+                    BarRange(
+                        bar_start=compiled.bar_start + input_bars,
+                        bar_end=compiled.bar_end,
+                    )
+                ]
         elif compiled.relation in {FormRelation.VARIATION, FormRelation.DEVELOPMENT}:
             access = "modifiable"
             method = "midigpt_transform"

@@ -71,7 +71,8 @@ def build_parser() -> argparse.ArgumentParser:
     plan.add_argument(
         "--musecoco-output-bars",
         type=int,
-        help="delivered MuseCoco motif length (default from request: 8 bars)",
+        choices=[8],
+        help="delivered MuseCoco motif length (fixed: 8 bars)",
     )
     plan.add_argument(
         "--musecoco-generation-bars",

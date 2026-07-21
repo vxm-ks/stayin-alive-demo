@@ -1,0 +1,59 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://legasynth.local/schemas/stage3_handoff.schema.json",
+  "title": "LegaSynth Stage 2 to Stage 3 Handoff",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "stage2_status",
+    "story_id",
+    "complete_midi",
+    "heartbeat_channel",
+    "note_map",
+    "heartbeat_packages",
+    "render_plan"
+  ],
+  "properties": {
+    "schema_version": {"const": "stage2-stage3-handoff-v1"},
+    "stage2_status": {"const": "test"},
+    "story_id": {"type": ["string", "null"]},
+    "complete_midi": {"$ref": "#/$defs/hashedFile"},
+    "heartbeat_channel": {"const": 10},
+    "note_map": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["36", "38"],
+      "properties": {"36": {"const": "S1"}, "38": {"const": "S2"}}
+    },
+    "heartbeat_packages": {
+      "type": "array",
+      "minItems": 0,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "path", "manifest_sha256"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "path": {"type": "string", "minLength": 1},
+          "manifest_sha256": {"$ref": "#/$defs/sha256"}
+        }
+      }
+    },
+    "render_plan": {
+      "anyOf": [{"$ref": "#/$defs/hashedFile"}, {"type": "null"}]
+    }
+  },
+  "$defs": {
+    "sha256": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "hashedFile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256"],
+      "properties": {
+        "path": {"type": "string", "minLength": 1},
+        "sha256": {"$ref": "#/$defs/sha256"}
+      }
+    }
+  }
+}

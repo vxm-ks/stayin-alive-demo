@@ -37,10 +37,10 @@ class AgentTests(unittest.TestCase):
         self.assertIn("calm", knowledge["emotion_quadrants"]["Q4"])
         self.assertNotIn("test_mode_exact_melodic_profile", knowledge)
         handoff = plan.stage2_handoff.sections
-        self.assertEqual([item.target_section_bars for item in handoff], [8, 8, 8, 16])
-        self.assertEqual([item.extension_bars for item in handoff], [0, 0, 0, 8])
+        self.assertEqual([item.target_section_bars for item in handoff], [16, 16, 16, 16])
+        self.assertEqual([item.extension_bars for item in handoff], [8, 8, 8, 8])
         self.assertEqual([item.tempo_bpm for item in handoff], [88, 104, 100, 92])
-        self.assertEqual([item.midigpt_access for item in handoff], ["fixed", "fixed", "modifiable", "extension_only"])
+        self.assertEqual([item.midigpt_access for item in handoff], ["extension_only", "extension_only", "modifiable", "extension_only"])
         self.assertEqual([item.drum_pattern.pattern for item in handoff], ["single_pulse_per_bar", "pulse_each_beat", "pulse_each_beat", "single_pulse_per_bar"])
         self.assertEqual([item.tension_level for item in handoff], ["low", "high", "high", "low"])
         self.assertNotIn("heart", run.stage2_delivery.model_dump_json().lower())
@@ -108,7 +108,7 @@ class AgentTests(unittest.TestCase):
         plan = run.content_plan
         self.assertTrue(plan.test_mode)
         self.assertEqual(plan.form_plan.form_string, "A-B-A")
-        self.assertEqual([item.bar_count for item in plan.form_plan.sections], [8, 16, 8])
+        self.assertEqual([item.bar_count for item in plan.form_plan.sections], [16, 16, 16])
         self.assertEqual(plan.global_.global_tonality.tonic, "C")
         self.assertEqual(plan.global_.global_tonality.mode, "minor")
         self.assertEqual(plan.global_.tempo_bpm, 96)
@@ -132,8 +132,8 @@ class AgentTests(unittest.TestCase):
         )
         handoff = plan.stage2_handoff.sections
         self.assertEqual([item.input_motif_bars for item in handoff], [8, 8, 8])
-        self.assertEqual([item.target_section_bars for item in handoff], [8, 16, 8])
-        self.assertEqual([item.extension_bars for item in handoff], [0, 8, 0])
+        self.assertEqual([item.target_section_bars for item in handoff], [16, 16, 16])
+        self.assertEqual([item.extension_bars for item in handoff], [8, 8, 8])
         self.assertEqual([item.tempo_bpm for item in handoff], [96, 96, 96])
         self.assertEqual(
             [item.drum_pattern.pattern for item in handoff],
@@ -150,11 +150,11 @@ class AgentTests(unittest.TestCase):
         )
         self.assertEqual(heartbeat[0].trigger_beats, [1.0])
         self.assertEqual(heartbeat[1].trigger_beats, [1.0, 2.0, 3.0, 4.0])
-        self.assertEqual([item.midigpt_access for item in handoff], ["fixed", "extension_only", "fixed"])
+        self.assertEqual([item.midigpt_access for item in handoff], ["extension_only", "extension_only", "extension_only"])
         self.assertEqual([(item.bar_start, item.bar_end) for item in handoff[0].protected_bar_ranges], [(1, 8)])
-        self.assertEqual(handoff[0].editable_bar_ranges, [])
-        self.assertEqual([(item.bar_start, item.bar_end) for item in handoff[2].protected_bar_ranges], [(25, 32)])
-        self.assertEqual(handoff[2].editable_bar_ranges, [])
+        self.assertEqual([(item.bar_start, item.bar_end) for item in handoff[0].editable_bar_ranges], [(9, 16)])
+        self.assertEqual([(item.bar_start, item.bar_end) for item in handoff[2].protected_bar_ranges], [(33, 40)])
+        self.assertEqual([(item.bar_start, item.bar_end) for item in handoff[2].editable_bar_ranges], [(41, 48)])
         prompt_payload = json.loads(backend.requests[0].messages[1].content)
         self.assertEqual(prompt_payload["test_mode_rules"]["form"], "A-B-A")
         knowledge = prompt_payload["musecoco_planning_knowledge"]

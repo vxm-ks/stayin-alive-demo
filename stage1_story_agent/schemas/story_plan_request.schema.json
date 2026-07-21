@@ -62,6 +62,13 @@
           "default": null,
           "title": "Allowed Tonics"
         },
+        "default_extension_bars": {
+          "default": 8,
+          "maximum": 63,
+          "minimum": 0,
+          "title": "Default Extension Bars",
+          "type": "integer"
+        },
         "max_theme_families": {
           "default": 4,
           "maximum": 8,
@@ -119,7 +126,7 @@
           "type": "number"
         },
         "total_bars": {
-          "default": 32,
+          "default": 64,
           "maximum": 256,
           "minimum": 4,
           "title": "Total Bars",

@@ -120,7 +120,7 @@ DEEPSEEK_API_KEY=你的真实Key
 python -m stage1_story_agent plan --story-text "这是一个需要转化为音乐结构的中文故事。" --force
 ```
 
-该命令在内存中转换为严格的 `StoryPlanRequest`：默认 `story_id=cli-story`、`language=zh-CN`、`total_bars=32`。未指定 `--output-dir` 时，以本地时间戳为前缀创建四个独立目录。可以用 `--story-id`、`--language` 和 `--output-dir` 覆盖对应值。
+该命令在内存中转换为严格的 `StoryPlanRequest`：默认 `story_id=cli-story`、`language=zh-CN`、`total_bars=64`。未指定 `--output-dir` 时，以本地时间戳为前缀创建四个独立目录。可以用 `--story-id`、`--language` 和 `--output-dir` 覆盖对应值。
 
 固定 ABA 测试模式：
 
@@ -128,11 +128,11 @@ python -m stage1_story_agent plan --story-text "这是一个需要转化为音�
 python -m stage1_story_agent plan --story-text "平静开始，冲突逐渐展开，最终回到最初的主题。" --test-mode
 ```
 
-测试模式鼓励 MuseCoco 生成约 12 小节，再严格交付 8 小节主题输入；曲式固定为 32 小节 `A-B-A`（8+16+8）、C minor、全段 96 BPM 和 4/4。长于 8 小节的 MIDI 会在精确小节边界裁剪并补齐仍发声音符的 Note Off，短于 8 小节则报错且不补静音。鼓轨张力固定为低/高/低：S1 与 S3 每小节仅第1拍触发一次，S2 每拍触发一次。Stage 2 据此生成整曲心跳鼓轨；S1/S2 音色映射在 Stage 3 对完整 MIDI 统一渲染时执行，而不是在 MIDI-GPT 后重建鼓轨。MuseCoco 旋律配置由程序硬覆盖为：A=solo piano/Chopin，B=solo violin/Schubert，统一 classical、2 个八度、not_danceable、medium rhythmic intensity。曲式 S1、S3 全段固定，S2 只允许 MIDI-GPT 修改后 8 小节延伸区。
+测试模式鼓励 MuseCoco 生成约 12 小节，再严格交付 8 小节主题输入；曲式固定为 48 小节 `A-B-A`，三段均为“8 小节主题＋8 小节填充”。全曲固定为 C minor、96 BPM 和 4/4。长于 8 小节的 MIDI 会在精确小节边界裁剪并补齐仍发声音符的 Note Off，短于 8 小节则报错且不补静音。鼓轨张力固定为低/高/低：S1 与 S3 每小节仅第1拍触发一次，S2 每拍触发一次。Stage 2 据此生成整曲心跳鼓轨；S1/S2 音色映射在 Stage 3 对完整 MIDI 统一渲染时执行，而不是在 MIDI-GPT 后重建鼓轨。MuseCoco 旋律配置由程序硬覆盖为：A=solo piano/Chopin，B=solo violin/Schubert，统一 classical、2 个八度、not_danceable、medium rhythmic intensity。三个段落都保护前8小节主题，并把后8小节标记为 MIDI-GPT 延伸区。
 
 所有规划请求还会注入版本化的 `musecoco-prompting-v4` 本地知识：只使用官方支持的离散属性和值，并在正常模式下软性偏好清晰的独奏旋律乐器、2–3 个八度、适中速度/节奏和旋律导向的古典风格。项目层硬性禁用 Stravinsky 与 synthesizer；为保持官方 60 头编码位置稳定，它们仍出现在冻结枚举中，但模型或输入一旦选择就会被拒绝。LLM 为情绪弧和叙事段评估 `valence`（-1 到 1）与 `tension`（0 到 1），不再选择 EM1；Python 使用 `valence-arousal-v1` 从主题引入段确定 Q1–Q4。旧响应中的 EM1 会保留在原始审计响应中，但不会影响正式输出。测试模式同时注入精确 melodic profile；最终仍由 Python 硬校验。
 
-默认长度参数为 `musecoco_generation_bars=12` 与 `musecoco_output_bars=8`。命令行可用 `--musecoco-generation-bars` 和 `--musecoco-output-bars` 分别覆盖；生成目标不得短于输出目标。使用 `plan --enqueue-musecoco --run-musecoco-queue` 时，成功结果会自动收集到 `raw_results/`，随后在 `generated_themes/` 中执行小节、速度、调性归一化并发布 `final.mid`。
+正式模式不固定 A/B/A 或其他曲式标签，段落数量和主题关系仍由故事规划决定；但每段统一为8小节主题加默认8小节填充。默认长度参数为 `musecoco_generation_bars=12`、`musecoco_output_bars=8` 和 `default_extension_bars=8`。主题交付长度固定为8小节，`--musecoco-output-bars` 仅接受8；生成目标仍可通过 `--musecoco-generation-bars` 调整且不得短于8。全曲总小节数必须是单段长度的整数倍，若指定 `target_form_sections`，必须与总小节数相符。使用 `plan --enqueue-musecoco --run-musecoco-queue` 时，成功结果会自动收集到 `raw_results/`，随后在 `generated_themes/` 中执行小节、速度、调性归一化并发布 `final.mid`。
 
 也可以只在当前 PowerShell 会话中设置环境变量：
 

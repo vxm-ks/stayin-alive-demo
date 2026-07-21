@@ -8,7 +8,7 @@ from typing import Annotated, Any, Literal
 from pydantic import BaseModel, ConfigDict, Field, StringConstraints, model_validator
 
 from .musecoco_policy import validate_musecoco_policy
-from .musecoco_length_policy import DEFAULT_GENERATION_BARS, DEFAULT_OUTPUT_BARS
+from .musecoco_length_policy import DEFAULT_EXTENSION_BARS, DEFAULT_GENERATION_BARS, DEFAULT_OUTPUT_BARS
 
 from .test_mode import (
     TEST_MODE_MODE,
@@ -76,7 +76,7 @@ def _require_unique(values: list[Any], field_name: str) -> list[Any]:
 
 
 class StoryPlanConstraints(StrictModel):
-    total_bars: int = Field(default=32, ge=4, le=256)
+    total_bars: int = Field(default=64, ge=4, le=256)
     target_form_sections: int | None = Field(default=None, ge=1, le=16)
     max_theme_families: int = Field(default=4, ge=1, le=8)
     max_variants_per_family: int = Field(default=2, ge=0, le=3)
@@ -91,6 +91,7 @@ class StoryPlanConstraints(StrictModel):
     allowed_tonics: list[Tonic] | None = None
     musecoco_output_bars: int = Field(default=DEFAULT_OUTPUT_BARS, ge=1, le=16)
     musecoco_generation_bars: int = Field(default=DEFAULT_GENERATION_BARS, ge=1, le=16)
+    default_extension_bars: int = Field(default=DEFAULT_EXTENSION_BARS, ge=0, le=63)
 
     @model_validator(mode="after")
     def validate_constraints(self) -> "StoryPlanConstraints":
@@ -102,6 +103,20 @@ class StoryPlanConstraints(StrictModel):
             )
         if self.total_bars < self.musecoco_output_bars:
             raise ValueError("total_bars must not be less than musecoco_output_bars")
+        if self.musecoco_output_bars != DEFAULT_OUTPUT_BARS:
+            raise ValueError("musecoco_output_bars must be 8")
+        section_bars = self.musecoco_output_bars + self.default_extension_bars
+        if self.total_bars % section_bars:
+            raise ValueError(
+                "total_bars must be divisible by musecoco_output_bars + default_extension_bars"
+            )
+        if (
+            self.target_form_sections is not None
+            and self.target_form_sections != self.total_bars // section_bars
+        ):
+            raise ValueError(
+                "target_form_sections must match total_bars divided by the default section length"
+            )
         _require_unique(self.allowed_time_signatures, "allowed_time_signatures")
         _require_unique(self.allowed_modes, "allowed_modes")
         if self.allowed_tonics is not None:
@@ -137,17 +152,18 @@ class StoryPlanRequest(StrictModel):
                 "tempo_bpm_max": TEST_MODE_TEMPO_BPM,
                 "allowed_modes": [TEST_MODE_MODE],
                 "allowed_tonics": [TEST_MODE_TONIC],
+                "musecoco_output_bars": TEST_MODE_INPUT_MOTIF_BARS,
+                "default_extension_bars": 8,
             }
         )
-        constraints.setdefault("musecoco_output_bars", TEST_MODE_INPUT_MOTIF_BARS)
         constraints.setdefault("musecoco_generation_bars", DEFAULT_GENERATION_BARS)
         normalized["constraints"] = constraints
         return normalized
 
     @model_validator(mode="after")
     def validate_test_mode_lengths(self) -> "StoryPlanRequest":
-        if self.test_mode and self.constraints.musecoco_output_bars > min(TEST_MODE_SECTION_BARS):
-            raise ValueError("test-mode musecoco_output_bars must not exceed 8")
+        if self.test_mode and self.constraints.musecoco_output_bars != TEST_MODE_INPUT_MOTIF_BARS:
+            raise ValueError("test-mode musecoco_output_bars must be 8")
         return self
 
 
@@ -437,7 +453,7 @@ class GlobalPlan(StrictModel):
 class Provenance(StrictModel):
     provider: str = Field(min_length=1, max_length=80)
     model: str = Field(min_length=1, max_length=120)
-    prompt_version: Literal["stage1-form-v7"] = "stage1-form-v7"
+    prompt_version: Literal["stage1-form-v8"] = "stage1-form-v8"
     request_id: str = Field(min_length=1, max_length=200)
     run_id: str = Field(min_length=1, max_length=80)
     story_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")

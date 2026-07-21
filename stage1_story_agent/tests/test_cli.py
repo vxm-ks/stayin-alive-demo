@@ -19,19 +19,6 @@ class ClosingFakeBackend(FakeBackend):
         return None
 
 
-def default_32_bar_draft() -> dict:
-    data = draft_data()
-    data["story_analysis"]["emotional_arc"] = [
-        {"position": 0, "emotion": "calm", "valence": 0.2, "tension": 0.2},
-        {"position": 1, "emotion": "resolved", "valence": 0.5, "tension": 0.3},
-    ]
-    data["story_analysis"]["narrative_segments"] = data["story_analysis"]["narrative_segments"][:1]
-    data["form_sections"] = data["form_sections"][:1]
-    data["form_sections"][0]["bar_count"] = 32
-    data["theme_families"] = data["theme_families"][:1]
-    return data
-
-
 class CliTests(unittest.TestCase):
     def test_default_output_directory_uses_timestamp_only(self):
         path = timestamped_output_dir(datetime(2026, 7, 17, 15, 30, 45, 123456))
@@ -45,25 +32,25 @@ class CliTests(unittest.TestCase):
         payload = request.model_dump(mode="json", by_alias=True)
         self.assertEqual(payload["story_id"], "cli-story")
         self.assertEqual(payload["language"], "zh-CN")
-        self.assertEqual(payload["constraints"]["total_bars"], 32)
+        self.assertEqual(payload["constraints"]["total_bars"], 64)
         self.assertIsNone(payload["constraints"]["target_form_sections"])
         self.assertEqual(payload["constraints"]["allowed_time_signatures"], ["4/4"])
         self.assertEqual(payload["constraints"]["musecoco_output_bars"], 8)
         self.assertEqual(payload["constraints"]["musecoco_generation_bars"], 12)
+        self.assertEqual(payload["constraints"]["default_extension_bars"], 8)
 
-    def test_natural_text_accepts_configurable_musecoco_lengths(self):
-        request = build_request_from_text(
-            "一个中文故事。",
-            musecoco_output_bars=6,
-            musecoco_generation_bars=10,
-        )
-        self.assertEqual(request.constraints.musecoco_output_bars, 6)
-        self.assertEqual(request.constraints.musecoco_generation_bars, 10)
+    def test_natural_text_rejects_non_eight_bar_motif(self):
+        with self.assertRaisesRegex(Exception, "musecoco_output_bars must be 8"):
+            build_request_from_text(
+                "一个中文故事。",
+                musecoco_output_bars=6,
+                musecoco_generation_bars=10,
+            )
 
     def test_natural_text_runs_complete_cli_with_fake_backend(self):
         with tempfile.TemporaryDirectory() as root:
             output = Path(root) / "natural-output"
-            backend = ClosingFakeBackend([json.dumps(default_32_bar_draft(), ensure_ascii=False)])
+            backend = ClosingFakeBackend([json.dumps(draft_data(), ensure_ascii=False)])
             environment = {
                 "DEEPSEEK_API_KEY": "test-secret",
                 "STAGE1_ENV_FILE": str(Path(root) / "missing.env"),
@@ -79,12 +66,12 @@ class CliTests(unittest.TestCase):
             self.assertEqual(code, 0)
             plan = json.loads((delivery_directories(output)["audit"] / "content_plan.json").read_text(encoding="utf-8"))
             self.assertEqual(plan["story_id"], "cli-story")
-            self.assertEqual(plan["global"]["total_bars"], 32)
-            self.assertEqual(plan["form_plan"]["form_string"], "A")
+            self.assertEqual(plan["global"]["total_bars"], 64)
+            self.assertEqual(plan["form_plan"]["form_string"], "A-B-A'-C")
             prompt_payload = json.loads(backend.requests[0].messages[1].content)
             normalized = prompt_payload["request"]
             self.assertEqual(normalized["story_text"], "一个平静而完整的中文故事。")
-            self.assertEqual(normalized["constraints"]["total_bars"], 32)
+            self.assertEqual(normalized["constraints"]["total_bars"], 64)
 
     def test_cli_test_mode_generates_fixed_aba(self):
         with tempfile.TemporaryDirectory() as root:
@@ -108,7 +95,7 @@ class CliTests(unittest.TestCase):
             plan = json.loads((delivery_directories(output)["audit"] / "content_plan.json").read_text(encoding="utf-8"))
             self.assertTrue(plan["test_mode"])
             self.assertEqual(plan["form_plan"]["form_string"], "A-B-A")
-            self.assertEqual([item["bar_count"] for item in plan["form_plan"]["sections"]], [8, 16, 8])
+            self.assertEqual([item["bar_count"] for item in plan["form_plan"]["sections"]], [16, 16, 16])
             self.assertEqual(plan["global"]["global_tonality"]["tonic"], "C")
             self.assertEqual(plan["global"]["global_tonality"]["mode"], "minor")
             self.assertEqual(plan["global"]["tempo_bpm"], 96.0)
