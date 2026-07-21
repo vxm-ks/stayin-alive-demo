@@ -1,0 +1,109 @@
+{
+  "$defs": {
+    "ValidationIssue": {
+      "additionalProperties": false,
+      "properties": {
+        "code": {
+          "pattern": "^[A-Z0-9_]+$",
+          "title": "Code",
+          "type": "string"
+        },
+        "message": {
+          "title": "Message",
+          "type": "string"
+        },
+        "path": {
+          "title": "Path",
+          "type": "string"
+        }
+      },
+      "required": [
+        "code",
+        "path",
+        "message"
+      ],
+      "title": "ValidationIssue",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "category": {
+      "enum": [
+        "input",
+        "configuration",
+        "backend",
+        "content",
+        "write",
+        "internal"
+      ],
+      "title": "Category",
+      "type": "string"
+    },
+    "content_attempts": {
+      "maximum": 3,
+      "minimum": 0,
+      "title": "Content Attempts",
+      "type": "integer"
+    },
+    "error_code": {
+      "title": "Error Code",
+      "type": "string"
+    },
+    "generated_at": {
+      "title": "Generated At",
+      "type": "string"
+    },
+    "issues": {
+      "items": {
+        "$ref": "#/$defs/ValidationIssue"
+      },
+      "maxItems": 20,
+      "title": "Issues",
+      "type": "array"
+    },
+    "message": {
+      "title": "Message",
+      "type": "string"
+    },
+    "network_attempts": {
+      "minimum": 0,
+      "title": "Network Attempts",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "0.2-draft",
+      "default": "0.2-draft",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "status": {
+      "const": "failed",
+      "default": "failed",
+      "title": "Status",
+      "type": "string"
+    },
+    "story_id": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Story Id"
+    }
+  },
+  "required": [
+    "category",
+    "error_code",
+    "message",
+    "generated_at",
+    "content_attempts",
+    "network_attempts"
+  ],
+  "title": "FailureReport",
+  "type": "object"
+}

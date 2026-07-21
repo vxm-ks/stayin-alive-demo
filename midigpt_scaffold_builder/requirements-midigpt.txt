@@ -1,0 +1,2 @@
+# Optional runtime used only for checkpoint contract validation and inference.
+midigpt[inference]==0.3.2

@@ -1,0 +1,19 @@
+{
+  "schema_version": "0.2-draft",
+  "story_id": "story-001",
+  "story_text": "清晨，主人公独自守着安静的房间。突如其来的消息打破平静，迫使他面对长期逃避的冲突。回忆中的信念以新的方式回来，最终他接受现实并作出决定。",
+  "language": "zh-CN",
+  "constraints": {
+    "total_bars": 40,
+    "target_form_sections": 4,
+    "max_theme_families": 4,
+    "max_variants_per_family": 2,
+    "allowed_time_signatures": ["4/4"],
+    "tempo_bpm_min": 70,
+    "tempo_bpm_max": 130,
+    "musecoco_generation_bars": 12,
+    "musecoco_output_bars": 8,
+    "allowed_modes": ["minor"],
+    "allowed_tonics": ["C", "D", "E", "F", "G", "A", "B"]
+  }
+}

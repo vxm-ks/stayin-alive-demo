@@ -1,0 +1,174 @@
+{
+  "$defs": {
+    "StoryPlanConstraints": {
+      "additionalProperties": false,
+      "properties": {
+        "allowed_modes": {
+          "items": {
+            "enum": [
+              "major",
+              "minor"
+            ],
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "title": "Allowed Modes",
+          "type": "array"
+        },
+        "allowed_time_signatures": {
+          "items": {
+            "enum": [
+              "1/4",
+              "2/4",
+              "3/4",
+              "4/4",
+              "3/8",
+              "6/8"
+            ],
+            "type": "string"
+          },
+          "maxItems": 6,
+          "minItems": 1,
+          "title": "Allowed Time Signatures",
+          "type": "array"
+        },
+        "allowed_tonics": {
+          "anyOf": [
+            {
+              "items": {
+                "enum": [
+                  "C",
+                  "C#",
+                  "D",
+                  "Eb",
+                  "E",
+                  "F",
+                  "F#",
+                  "G",
+                  "Ab",
+                  "A",
+                  "Bb",
+                  "B"
+                ],
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Allowed Tonics"
+        },
+        "max_theme_families": {
+          "default": 4,
+          "maximum": 8,
+          "minimum": 1,
+          "title": "Max Theme Families",
+          "type": "integer"
+        },
+        "max_variants_per_family": {
+          "default": 2,
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Max Variants Per Family",
+          "type": "integer"
+        },
+        "musecoco_generation_bars": {
+          "default": 12,
+          "maximum": 16,
+          "minimum": 1,
+          "title": "Musecoco Generation Bars",
+          "type": "integer"
+        },
+        "musecoco_output_bars": {
+          "default": 8,
+          "maximum": 16,
+          "minimum": 1,
+          "title": "Musecoco Output Bars",
+          "type": "integer"
+        },
+        "target_form_sections": {
+          "anyOf": [
+            {
+              "maximum": 16,
+              "minimum": 1,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Target Form Sections"
+        },
+        "tempo_bpm_max": {
+          "default": 130.0,
+          "maximum": 240.0,
+          "minimum": 30.0,
+          "title": "Tempo Bpm Max",
+          "type": "number"
+        },
+        "tempo_bpm_min": {
+          "default": 70.0,
+          "maximum": 240.0,
+          "minimum": 30.0,
+          "title": "Tempo Bpm Min",
+          "type": "number"
+        },
+        "total_bars": {
+          "default": 32,
+          "maximum": 256,
+          "minimum": 4,
+          "title": "Total Bars",
+          "type": "integer"
+        }
+      },
+      "title": "StoryPlanConstraints",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "constraints": {
+      "$ref": "#/$defs/StoryPlanConstraints"
+    },
+    "language": {
+      "default": "zh-CN",
+      "maxLength": 35,
+      "pattern": "^[A-Za-z]{2,3}(?:-[A-Za-z0-9]{2,8})*$",
+      "title": "Language",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.2-draft",
+      "default": "0.2-draft",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "story_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+      "title": "Story Id",
+      "type": "string"
+    },
+    "story_text": {
+      "maxLength": 20000,
+      "minLength": 1,
+      "title": "Story Text",
+      "type": "string"
+    },
+    "test_mode": {
+      "default": false,
+      "title": "Test Mode",
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "story_id",
+    "story_text"
+  ],
+  "title": "StoryPlanRequest",
+  "type": "object"
+}

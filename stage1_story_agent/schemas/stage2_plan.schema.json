@@ -1,0 +1,263 @@
+{
+  "$defs": {
+    "BarRange": {
+      "additionalProperties": false,
+      "properties": {
+        "bar_end": {
+          "maximum": 256,
+          "minimum": 1,
+          "title": "Bar End",
+          "type": "integer"
+        },
+        "bar_start": {
+          "maximum": 256,
+          "minimum": 1,
+          "title": "Bar Start",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "bar_start",
+        "bar_end"
+      ],
+      "title": "BarRange",
+      "type": "object"
+    },
+    "DrumPatternInstruction": {
+      "additionalProperties": false,
+      "properties": {
+        "closed_hihat_beats": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 64,
+          "title": "Closed Hihat Beats",
+          "type": "array"
+        },
+        "kick_beats": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 32,
+          "title": "Kick Beats",
+          "type": "array"
+        },
+        "pattern": {
+          "enum": [
+            "single_pulse_per_bar",
+            "pulse_each_beat"
+          ],
+          "title": "Pattern",
+          "type": "string"
+        },
+        "snare_beats": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 32,
+          "title": "Snare Beats",
+          "type": "array"
+        },
+        "time_signature": {
+          "enum": [
+            "1/4",
+            "2/4",
+            "3/4",
+            "4/4",
+            "3/8",
+            "6/8"
+          ],
+          "title": "Time Signature",
+          "type": "string"
+        }
+      },
+      "required": [
+        "pattern",
+        "time_signature"
+      ],
+      "title": "DrumPatternInstruction",
+      "type": "object"
+    },
+    "Stage2SectionInstruction": {
+      "additionalProperties": false,
+      "properties": {
+        "bar_end": {
+          "maximum": 256,
+          "minimum": 1,
+          "title": "Bar End",
+          "type": "integer"
+        },
+        "bar_start": {
+          "maximum": 256,
+          "minimum": 1,
+          "title": "Bar Start",
+          "type": "integer"
+        },
+        "drum_pattern": {
+          "$ref": "#/$defs/DrumPatternInstruction"
+        },
+        "editable_bar_ranges": {
+          "items": {
+            "$ref": "#/$defs/BarRange"
+          },
+          "maxItems": 2,
+          "title": "Editable Bar Ranges",
+          "type": "array"
+        },
+        "extension_bars": {
+          "maximum": 63,
+          "minimum": 0,
+          "title": "Extension Bars",
+          "type": "integer"
+        },
+        "extension_method": {
+          "enum": [
+            "none",
+            "midigpt_extend",
+            "midigpt_transform",
+            "reuse_source_section"
+          ],
+          "title": "Extension Method",
+          "type": "string"
+        },
+        "input_motif_bars": {
+          "maximum": 16,
+          "minimum": 1,
+          "title": "Input Motif Bars",
+          "type": "integer"
+        },
+        "midigpt_access": {
+          "enum": [
+            "fixed",
+            "extension_only",
+            "modifiable"
+          ],
+          "title": "Midigpt Access",
+          "type": "string"
+        },
+        "protected_bar_ranges": {
+          "items": {
+            "$ref": "#/$defs/BarRange"
+          },
+          "maxItems": 2,
+          "title": "Protected Bar Ranges",
+          "type": "array"
+        },
+        "section_id": {
+          "pattern": "^S[1-9][0-9]?$",
+          "title": "Section Id",
+          "type": "string"
+        },
+        "source_tension": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Source Tension",
+          "type": "number"
+        },
+        "target_section_bars": {
+          "maximum": 64,
+          "minimum": 1,
+          "title": "Target Section Bars",
+          "type": "integer"
+        },
+        "tempo_bpm": {
+          "maximum": 240.0,
+          "minimum": 30.0,
+          "title": "Tempo Bpm",
+          "type": "number"
+        },
+        "tension_level": {
+          "enum": [
+            "low",
+            "high"
+          ],
+          "title": "Tension Level",
+          "type": "string"
+        }
+      },
+      "required": [
+        "section_id",
+        "bar_start",
+        "bar_end",
+        "input_motif_bars",
+        "target_section_bars",
+        "extension_bars",
+        "extension_method",
+        "tempo_bpm",
+        "source_tension",
+        "tension_level",
+        "drum_pattern",
+        "midigpt_access"
+      ],
+      "title": "Stage2SectionInstruction",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "bar_numbering": {
+      "const": "one_based_closed",
+      "default": "one_based_closed",
+      "title": "Bar Numbering",
+      "type": "string"
+    },
+    "drum_track_scope": {
+      "const": "instructions_only",
+      "default": "instructions_only",
+      "title": "Drum Track Scope",
+      "type": "string"
+    },
+    "form_string": {
+      "minLength": 1,
+      "title": "Form String",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.2-draft",
+      "default": "0.2-draft",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sections": {
+      "items": {
+        "$ref": "#/$defs/Stage2SectionInstruction"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Sections",
+      "type": "array"
+    },
+    "story_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+      "title": "Story Id",
+      "type": "string"
+    },
+    "time_signature": {
+      "enum": [
+        "1/4",
+        "2/4",
+        "3/4",
+        "4/4",
+        "3/8",
+        "6/8"
+      ],
+      "title": "Time Signature",
+      "type": "string"
+    },
+    "total_bars": {
+      "maximum": 256,
+      "minimum": 4,
+      "title": "Total Bars",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "story_id",
+    "total_bars",
+    "form_string",
+    "time_signature",
+    "sections"
+  ],
+  "title": "Stage2Delivery",
+  "type": "object"
+}

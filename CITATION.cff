@@ -1,0 +1,11 @@
+cff-version: 1.2.0
+message: "If you use LegaSynth, please cite this software and the upstream methods listed in its documentation."
+title: "LegaSynth"
+type: software
+version: 0.1.0
+date-released: 2026-07-21
+license: MIT
+authors:
+  - name: "LegaSynth contributors"
+repository-code: "https://github.com/OWNER/legasynth"
+abstract: "A reproducible pipeline for planning music, extracting real S1/S2 heartbeat timbres, symbolic completion, and audited final rendering."

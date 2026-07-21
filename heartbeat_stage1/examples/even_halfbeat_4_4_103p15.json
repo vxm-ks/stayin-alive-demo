@@ -1,0 +1,31 @@
+{
+  "schema_version": "1.0",
+  "plan_id": "even_halfbeat_4_4_103p15",
+  "description": "每拍一次心动周期，S1在拍点、S2在半拍，波形不拉伸。",
+  "meter": "4/4",
+  "target_bpm": 103.15,
+  "pattern_length_beats": 1.0,
+  "repeat_to_fill_bar": true,
+  "event_bank_mode": "paired_rotate",
+  "midi_note_duration_beats": 0.5,
+  "peak_target_dbfs": -1.0,
+  "events": [
+    {
+      "type": "S1",
+      "offset_beats": 0.0,
+      "gain_db": 0.0,
+      "midi_velocity": 100
+    },
+    {
+      "type": "S2",
+      "offset_beats": 0.5,
+      "gain_db": -2.0,
+      "midi_velocity": 85
+    }
+  ],
+  "audio_policy": {
+    "time_stretch": false,
+    "pitch_shift": false,
+    "preserve_real_timbre": true
+  }
+}

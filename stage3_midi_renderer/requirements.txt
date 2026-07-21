@@ -1,0 +1,5 @@
+# Audio conditioning component.
+numpy>=1.24
+scipy>=1.10
+
+# Runtime rendering additionally requires the FluidSynth executable and SF2 files.

@@ -1,0 +1,54 @@
+{
+  "global_proposal": {
+    "tempo_bpm": 96,
+    "time_signature": "4/4",
+    "global_tonality": {
+      "tonic": "C",
+      "mode": "minor",
+      "rationale": "统一全曲调性，通过配器和密度变化塑造转折。"
+    }
+  },
+  "story_analysis": {
+    "summary": "故事经历平静、冲突、信念回归和最终抉择。",
+    "emotional_arc": [
+      {"position": 0, "emotion": "calm", "valence": 0.2, "tension": 0.2},
+      {"position": 0.5, "emotion": "anxious", "valence": -0.7, "tension": 0.8},
+      {"position": 1, "emotion": "resolved", "valence": 0.5, "tension": 0.3}
+    ],
+    "narrative_segments": [
+      {"segment_id": "N1", "summary": "独处的平静开场", "narrative_role": "opening", "emotion": "calm", "valence": 0.2, "tension": 0.2},
+      {"segment_id": "N2", "summary": "消息带来冲突", "narrative_role": "build", "emotion": "tense", "valence": -0.7, "tension": 0.7},
+      {"segment_id": "N3", "summary": "旧信念以新方式回归", "narrative_role": "turn", "emotion": "melancholic", "valence": -0.6, "tension": 0.8},
+      {"segment_id": "N4", "summary": "接受现实并决定", "narrative_role": "resolution", "emotion": "resolved", "valence": 0.5, "tension": 0.3}
+    ]
+  },
+  "form_sections": [
+    {"section_id": "S1", "base_symbol": "A", "variant_index": 0, "relation": "introduce", "source_section_id": null, "bar_count": 8, "tempo_bpm": 88, "narrative_segment_ids": ["N1"], "musical_intent": "建立克制的主主题"},
+    {"section_id": "S2", "base_symbol": "B", "variant_index": 0, "relation": "introduce", "source_section_id": null, "bar_count": 8, "tempo_bpm": 104, "narrative_segment_ids": ["N2"], "musical_intent": "形成对比并提高张力"},
+    {"section_id": "S3", "base_symbol": "A", "variant_index": 1, "relation": "variation", "source_section_id": "S1", "bar_count": 8, "tempo_bpm": 100, "narrative_segment_ids": ["N3"], "musical_intent": "保留 A 身份并提高密度"},
+    {"section_id": "S4", "base_symbol": "C", "variant_index": 0, "relation": "introduce", "source_section_id": null, "bar_count": 16, "tempo_bpm": 92, "narrative_segment_ids": ["N4"], "musical_intent": "引入最终抉择的新主题"}
+  ],
+  "theme_families": [
+    {
+      "base_symbol": "A",
+      "role": "main_theme",
+      "seed_bars": 8,
+      "intent": "克制、清晰、便于变奏",
+      "musecoco_choices": {"I1s2": ["piano", "cello"], "R1": "not_danceable", "R3": "low", "S2s1": "chopin", "S4": ["classical"], "P4": 2}
+    },
+    {
+      "base_symbol": "B",
+      "role": "conflict_theme",
+      "seed_bars": 8,
+      "intent": "尖锐、推进冲突",
+      "musecoco_choices": {"I1s2": ["strings", "drum"], "R1": "not_danceable", "R3": "high", "S2s1": "prokofiev", "S4": ["symphony"], "P4": 3}
+    },
+    {
+      "base_symbol": "C",
+      "role": "resolution_theme",
+      "seed_bars": 8,
+      "intent": "清晰而坚定的收束",
+      "musecoco_choices": {"I1s2": ["piano", "strings"], "R1": "not_danceable", "R3": "medium", "S2s1": "beethoven", "S4": ["classical"], "P4": 2}
+    }
+  ]
+}

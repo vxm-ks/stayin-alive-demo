@@ -1,0 +1,7 @@
+#!/bin/bash
+set -Eeuo pipefail
+
+python_bin="${MUSECOCO_PYTHON:-$HOME/miniforge3/envs/MuseCoco/bin/python}"
+queue_script="${MUSECOCO_QUEUE_SCRIPT:-$HOME/.local/share/legasynth/musecoco_task_queue.py}"
+
+exec "$python_bin" "$queue_script" worker "$@"

@@ -1,0 +1,14 @@
+{
+  "name": "Microsoft Muzic / MuseCoco",
+  "repository": "https://github.com/microsoft/muzic.git",
+  "commit": "a2efda0bfb297b1520282a61ca12513dc3517744",
+  "license": "MIT",
+  "vendored": false,
+  "official_files_sha256": {
+    "musecoco/1-text2attribute_model/stage2_pre.py": "681907a52ee266835d6f98b6a96428310c48320775232cd7d3d73b52f3152a80",
+    "musecoco/1-text2attribute_model/data/att_key.json": "8be36050b25a123dcf4109e090b00c6abe3465638b9c2c9d971da24b6a9006b2",
+    "musecoco/2-attribute2music_model/interactive_1billion.sh": "181aaad8fe2b98b40f2f9e08695262a329c1539d8a561d589a9abca56b516918",
+    "musecoco/2-attribute2music_model/linear_mask/interactive_dict_v5_1billion.py": "939d687065b8009871164a9a777cfd8b40416ba79d8eff3e4e2b8f3d7454e1ee",
+    "musecoco/2-attribute2music_model/linear_mask/A2M_task_new.py": "13d69f27ba8f777a0566572a00722d03921c1c38581bd8716f7777df2adebc90"
+  }
+}

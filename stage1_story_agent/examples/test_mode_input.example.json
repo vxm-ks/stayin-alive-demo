@@ -1,0 +1,7 @@
+{
+  "schema_version": "0.2-draft",
+  "story_id": "test-mode-story",
+  "story_text": "平静开始，冲突逐渐展开，最终回到最初的主题。",
+  "language": "zh-CN",
+  "test_mode": true
+}

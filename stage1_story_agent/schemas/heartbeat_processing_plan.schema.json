@@ -1,0 +1,207 @@
+{
+  "$defs": {
+    "DrumPatternInstruction": {
+      "additionalProperties": false,
+      "properties": {
+        "closed_hihat_beats": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 64,
+          "title": "Closed Hihat Beats",
+          "type": "array"
+        },
+        "kick_beats": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 32,
+          "title": "Kick Beats",
+          "type": "array"
+        },
+        "pattern": {
+          "enum": [
+            "single_pulse_per_bar",
+            "pulse_each_beat"
+          ],
+          "title": "Pattern",
+          "type": "string"
+        },
+        "snare_beats": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 32,
+          "title": "Snare Beats",
+          "type": "array"
+        },
+        "time_signature": {
+          "enum": [
+            "1/4",
+            "2/4",
+            "3/4",
+            "4/4",
+            "3/8",
+            "6/8"
+          ],
+          "title": "Time Signature",
+          "type": "string"
+        }
+      },
+      "required": [
+        "pattern",
+        "time_signature"
+      ],
+      "title": "DrumPatternInstruction",
+      "type": "object"
+    },
+    "HeartbeatProcessingSection": {
+      "additionalProperties": false,
+      "properties": {
+        "bar_end": {
+          "maximum": 256,
+          "minimum": 1,
+          "title": "Bar End",
+          "type": "integer"
+        },
+        "bar_start": {
+          "maximum": 256,
+          "minimum": 1,
+          "title": "Bar Start",
+          "type": "integer"
+        },
+        "heart_sounds": {
+          "items": {
+            "enum": [
+              "S1",
+              "S2"
+            ],
+            "type": "string"
+          },
+          "maxItems": 2,
+          "minItems": 1,
+          "title": "Heart Sounds",
+          "type": "array"
+        },
+        "section_id": {
+          "pattern": "^S[1-9][0-9]?$",
+          "title": "Section Id",
+          "type": "string"
+        },
+        "source_drum_pattern": {
+          "$ref": "#/$defs/DrumPatternInstruction"
+        },
+        "source_tension": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Source Tension",
+          "type": "number"
+        },
+        "tempo_bpm": {
+          "maximum": 240.0,
+          "minimum": 30.0,
+          "title": "Tempo Bpm",
+          "type": "number"
+        },
+        "tension_level": {
+          "enum": [
+            "low",
+            "high"
+          ],
+          "title": "Tension Level",
+          "type": "string"
+        },
+        "trigger_beats": {
+          "items": {
+            "type": "number"
+          },
+          "maxItems": 32,
+          "minItems": 1,
+          "title": "Trigger Beats",
+          "type": "array"
+        },
+        "trigger_mode": {
+          "enum": [
+            "once_per_bar",
+            "every_beat"
+          ],
+          "title": "Trigger Mode",
+          "type": "string"
+        }
+      },
+      "required": [
+        "section_id",
+        "bar_start",
+        "bar_end",
+        "tempo_bpm",
+        "source_tension",
+        "tension_level",
+        "trigger_mode",
+        "trigger_beats",
+        "heart_sounds",
+        "source_drum_pattern"
+      ],
+      "title": "HeartbeatProcessingSection",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "contains_heartbeat_audio": {
+      "const": false,
+      "default": false,
+      "title": "Contains Heartbeat Audio",
+      "type": "boolean"
+    },
+    "high_tension_every_beat_below_bpm": {
+      "const": 110.0,
+      "default": 110.0,
+      "title": "High Tension Every Beat Below Bpm",
+      "type": "number"
+    },
+    "input_source": {
+      "const": "final_midigpt_drum_track",
+      "default": "final_midigpt_drum_track",
+      "title": "Input Source",
+      "type": "string"
+    },
+    "render_stage": {
+      "const": "after_midigpt",
+      "default": "after_midigpt",
+      "title": "Render Stage",
+      "type": "string"
+    },
+    "schema_version": {
+      "const": "0.2-draft",
+      "default": "0.2-draft",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "sections": {
+      "items": {
+        "$ref": "#/$defs/HeartbeatProcessingSection"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Sections",
+      "type": "array"
+    },
+    "story_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+      "title": "Story Id",
+      "type": "string"
+    },
+    "tension_threshold": {
+      "const": 0.55,
+      "default": 0.55,
+      "title": "Tension Threshold",
+      "type": "number"
+    }
+  },
+  "required": [
+    "story_id",
+    "sections"
+  ],
+  "title": "HeartbeatProcessingDelivery",
+  "type": "object"
+}

@@ -1,0 +1,509 @@
+{
+  "$defs": {
+    "EmotionalArcPoint": {
+      "additionalProperties": false,
+      "properties": {
+        "emotion": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Emotion",
+          "type": "string"
+        },
+        "position": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Position",
+          "type": "number"
+        },
+        "tension": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Tension",
+          "type": "number"
+        },
+        "valence": {
+          "maximum": 1.0,
+          "minimum": -1.0,
+          "title": "Valence",
+          "type": "number"
+        }
+      },
+      "required": [
+        "position",
+        "emotion",
+        "valence",
+        "tension"
+      ],
+      "title": "EmotionalArcPoint",
+      "type": "object"
+    },
+    "FormRelation": {
+      "enum": [
+        "introduce",
+        "reprise",
+        "variation",
+        "development"
+      ],
+      "title": "FormRelation",
+      "type": "string"
+    },
+    "GlobalProposal": {
+      "additionalProperties": false,
+      "properties": {
+        "global_tonality": {
+          "$ref": "#/$defs/GlobalTonality"
+        },
+        "tempo_bpm": {
+          "maximum": 240.0,
+          "minimum": 30.0,
+          "title": "Tempo Bpm",
+          "type": "number"
+        },
+        "time_signature": {
+          "enum": [
+            "1/4",
+            "2/4",
+            "3/4",
+            "4/4",
+            "3/8",
+            "6/8"
+          ],
+          "title": "Time Signature",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tempo_bpm",
+        "time_signature",
+        "global_tonality"
+      ],
+      "title": "GlobalProposal",
+      "type": "object"
+    },
+    "GlobalTonality": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "major",
+            "minor"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "rationale": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "tonic": {
+          "enum": [
+            "C",
+            "C#",
+            "D",
+            "Eb",
+            "E",
+            "F",
+            "F#",
+            "G",
+            "Ab",
+            "A",
+            "Bb",
+            "B"
+          ],
+          "title": "Tonic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tonic",
+        "mode",
+        "rationale"
+      ],
+      "title": "GlobalTonality",
+      "type": "object"
+    },
+    "LLMFormSection": {
+      "additionalProperties": false,
+      "description": "Only fields the LLM is authoritative for.",
+      "properties": {
+        "bar_count": {
+          "maximum": 64,
+          "minimum": 1,
+          "title": "Bar Count",
+          "type": "integer"
+        },
+        "base_symbol": {
+          "pattern": "^[A-H]$",
+          "title": "Base Symbol",
+          "type": "string"
+        },
+        "musical_intent": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Musical Intent",
+          "type": "string"
+        },
+        "narrative_segment_ids": {
+          "items": {
+            "pattern": "^N[1-9][0-9]?$",
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Narrative Segment Ids",
+          "type": "array"
+        },
+        "relation": {
+          "$ref": "#/$defs/FormRelation"
+        },
+        "section_id": {
+          "pattern": "^S[1-9][0-9]?$",
+          "title": "Section Id",
+          "type": "string"
+        },
+        "source_section_id": {
+          "anyOf": [
+            {
+              "pattern": "^S[1-9][0-9]?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Section Id"
+        },
+        "tempo_bpm": {
+          "maximum": 240.0,
+          "minimum": 30.0,
+          "title": "Tempo Bpm",
+          "type": "number"
+        },
+        "variant_index": {
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Variant Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "section_id",
+        "base_symbol",
+        "variant_index",
+        "relation",
+        "bar_count",
+        "tempo_bpm",
+        "narrative_segment_ids",
+        "musical_intent"
+      ],
+      "title": "LLMFormSection",
+      "type": "object"
+    },
+    "LLMStoryAnalysis": {
+      "additionalProperties": false,
+      "properties": {
+        "emotional_arc": {
+          "items": {
+            "$ref": "#/$defs/EmotionalArcPoint"
+          },
+          "maxItems": 20,
+          "minItems": 2,
+          "title": "Emotional Arc",
+          "type": "array"
+        },
+        "narrative_segments": {
+          "items": {
+            "$ref": "#/$defs/NarrativeSegment"
+          },
+          "maxItems": 99,
+          "minItems": 1,
+          "title": "Narrative Segments",
+          "type": "array"
+        },
+        "summary": {
+          "maxLength": 1000,
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        }
+      },
+      "required": [
+        "summary",
+        "emotional_arc",
+        "narrative_segments"
+      ],
+      "title": "LLMStoryAnalysis",
+      "type": "object"
+    },
+    "LLMThemeFamily": {
+      "additionalProperties": false,
+      "properties": {
+        "base_symbol": {
+          "pattern": "^[A-H]$",
+          "title": "Base Symbol",
+          "type": "string"
+        },
+        "intent": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Intent",
+          "type": "string"
+        },
+        "musecoco_choices": {
+          "$ref": "#/$defs/MuseCocoChoices"
+        },
+        "role": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Role",
+          "type": "string"
+        },
+        "seed_bars": {
+          "maximum": 16,
+          "minimum": 1,
+          "title": "Seed Bars",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "base_symbol",
+        "role",
+        "seed_bars",
+        "intent",
+        "musecoco_choices"
+      ],
+      "title": "LLMThemeFamily",
+      "type": "object"
+    },
+    "MuseCocoChoices": {
+      "additionalProperties": false,
+      "properties": {
+        "I1s2": {
+          "items": {
+            "enum": [
+              "piano",
+              "keyboard",
+              "percussion",
+              "organ",
+              "guitar",
+              "bass",
+              "violin",
+              "viola",
+              "cello",
+              "harp",
+              "strings",
+              "voice",
+              "trumpet",
+              "trombone",
+              "tuba",
+              "horn",
+              "brass",
+              "sax",
+              "oboe",
+              "bassoon",
+              "clarinet",
+              "piccolo",
+              "flute",
+              "pipe",
+              "synthesizer",
+              "ethnic_instruments",
+              "sound_effects",
+              "drum"
+            ],
+            "type": "string"
+          },
+          "maxItems": 28,
+          "minItems": 1,
+          "title": "I1S2",
+          "type": "array"
+        },
+        "P4": {
+          "maximum": 11,
+          "minimum": 0,
+          "title": "P4",
+          "type": "integer"
+        },
+        "R1": {
+          "enum": [
+            "danceable",
+            "not_danceable"
+          ],
+          "title": "R1",
+          "type": "string"
+        },
+        "R3": {
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "title": "R3",
+          "type": "string"
+        },
+        "S2s1": {
+          "enum": [
+            "beethoven",
+            "mozart",
+            "chopin",
+            "schubert",
+            "schumann",
+            "bach",
+            "haydn",
+            "brahms",
+            "handel",
+            "tchaikovsky",
+            "mendelssohn",
+            "dvorak",
+            "liszt",
+            "stravinsky",
+            "mahler",
+            "prokofiev",
+            "shostakovich"
+          ],
+          "title": "S2S1",
+          "type": "string"
+        },
+        "S4": {
+          "items": {
+            "enum": [
+              "new_age",
+              "electronic",
+              "rap",
+              "religious",
+              "international",
+              "easy_listening",
+              "avant_garde",
+              "rnb",
+              "latin",
+              "children",
+              "jazz",
+              "classical",
+              "comedy_spoken",
+              "pop_rock",
+              "reggae",
+              "stage",
+              "folk",
+              "blues",
+              "vocal",
+              "holiday",
+              "country",
+              "symphony"
+            ],
+            "type": "string"
+          },
+          "maxItems": 22,
+          "minItems": 1,
+          "title": "S4",
+          "type": "array"
+        }
+      },
+      "required": [
+        "I1s2",
+        "R1",
+        "R3",
+        "S2s1",
+        "S4",
+        "P4"
+      ],
+      "title": "MuseCocoChoices",
+      "type": "object"
+    },
+    "NarrativeRole": {
+      "enum": [
+        "opening",
+        "build",
+        "turn",
+        "climax",
+        "aftermath",
+        "resolution",
+        "other"
+      ],
+      "title": "NarrativeRole",
+      "type": "string"
+    },
+    "NarrativeSegment": {
+      "additionalProperties": false,
+      "properties": {
+        "emotion": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Emotion",
+          "type": "string"
+        },
+        "narrative_role": {
+          "$ref": "#/$defs/NarrativeRole"
+        },
+        "segment_id": {
+          "pattern": "^N[1-9][0-9]?$",
+          "title": "Segment Id",
+          "type": "string"
+        },
+        "summary": {
+          "maxLength": 500,
+          "minLength": 1,
+          "title": "Summary",
+          "type": "string"
+        },
+        "tension": {
+          "maximum": 1.0,
+          "minimum": 0.0,
+          "title": "Tension",
+          "type": "number"
+        },
+        "valence": {
+          "maximum": 1.0,
+          "minimum": -1.0,
+          "title": "Valence",
+          "type": "number"
+        }
+      },
+      "required": [
+        "segment_id",
+        "summary",
+        "narrative_role",
+        "emotion",
+        "valence",
+        "tension"
+      ],
+      "title": "NarrativeSegment",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "form_sections": {
+      "items": {
+        "$ref": "#/$defs/LLMFormSection"
+      },
+      "maxItems": 16,
+      "minItems": 1,
+      "title": "Form Sections",
+      "type": "array"
+    },
+    "global_proposal": {
+      "$ref": "#/$defs/GlobalProposal"
+    },
+    "story_analysis": {
+      "$ref": "#/$defs/LLMStoryAnalysis"
+    },
+    "theme_families": {
+      "items": {
+        "$ref": "#/$defs/LLMThemeFamily"
+      },
+      "maxItems": 8,
+      "minItems": 1,
+      "title": "Theme Families",
+      "type": "array"
+    }
+  },
+  "required": [
+    "global_proposal",
+    "story_analysis",
+    "form_sections",
+    "theme_families"
+  ],
+  "title": "LLMContentPlanDraft",
+  "type": "object"
+}

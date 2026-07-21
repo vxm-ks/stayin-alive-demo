@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://legasynth.local/schemas/rhythm_plan-1.0.json",
+  "title": "LegaSynth heartbeat rhythm plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "meter", "target_bpm", "pattern_length_beats", "events"],
+  "properties": {
+    "schema_version": {"const": "1.0"},
+    "plan_id": {"type": "string", "minLength": 1},
+    "description": {"type": "string"},
+    "meter": {
+      "oneOf": [
+        {"type": "string", "pattern": "^[0-9]+\\s*/\\s*[0-9]+$"},
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["numerator", "denominator"],
+          "properties": {
+            "numerator": {"type": "integer", "minimum": 1, "maximum": 32},
+            "denominator": {"type": "integer", "enum": [1, 2, 4, 8, 16, 32, 64]}
+          }
+        }
+      ]
+    },
+    "target_bpm": {"type": "number", "minimum": 20, "maximum": 300},
+    "beat_unit": {"const": "quarter_note"},
+    "bar_length_beats": {"type": "number", "exclusiveMinimum": 0},
+    "pattern_length_beats": {"type": "number", "exclusiveMinimum": 0},
+    "repeat_to_fill_bar": {"type": "boolean", "default": true},
+    "event_bank_mode": {"enum": ["best", "rotate", "paired_rotate"], "default": "paired_rotate"},
+    "midi_note_duration_beats": {"type": "number", "exclusiveMinimum": 0, "default": 0.5},
+    "peak_target_dbfs": {"type": "number", "minimum": -12, "maximum": -0.1, "default": -1},
+    "audio_policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "time_stretch": {"const": false},
+        "pitch_shift": {"const": false},
+        "preserve_real_timbre": {"const": true},
+        "additional_denoising": {"const": false},
+        "dynamic_compression": {"const": false}
+      }
+    },
+    "validation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["expanded_event_count", "minimum_onset_spacing_s", "warnings"],
+      "properties": {
+        "expanded_event_count": {"type": "integer", "minimum": 1},
+        "minimum_onset_spacing_s": {"type": "number", "minimum": 0},
+        "warnings": {"type": "array", "items": {"type": "string"}}
+      }
+    },
+    "events": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["type"],
+        "properties": {
+          "type": {"enum": ["S1", "S2", "s1", "s2"]},
+          "offset_beats": {"type": "number", "minimum": 0},
+          "offset_seconds": {"type": "number", "minimum": 0},
+          "gain_db": {"type": "number", "minimum": -24, "maximum": 12, "default": 0},
+          "midi_velocity": {"type": "integer", "minimum": 1, "maximum": 127}
+        },
+        "oneOf": [
+          {"required": ["offset_beats"], "not": {"required": ["offset_seconds"]}},
+          {"required": ["offset_seconds"], "not": {"required": ["offset_beats"]}}
+        ]
+      }
+    }
+  }
+}

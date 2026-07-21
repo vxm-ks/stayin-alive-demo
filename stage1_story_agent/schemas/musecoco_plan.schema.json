@@ -1,0 +1,397 @@
+{
+  "$defs": {
+    "GlobalTonality": {
+      "additionalProperties": false,
+      "properties": {
+        "mode": {
+          "enum": [
+            "major",
+            "minor"
+          ],
+          "title": "Mode",
+          "type": "string"
+        },
+        "rationale": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Rationale",
+          "type": "string"
+        },
+        "tonic": {
+          "enum": [
+            "C",
+            "C#",
+            "D",
+            "Eb",
+            "E",
+            "F",
+            "F#",
+            "G",
+            "Ab",
+            "A",
+            "Bb",
+            "B"
+          ],
+          "title": "Tonic",
+          "type": "string"
+        }
+      },
+      "required": [
+        "tonic",
+        "mode",
+        "rationale"
+      ],
+      "title": "GlobalTonality",
+      "type": "object"
+    },
+    "MuseCocoAttributeTargets": {
+      "additionalProperties": false,
+      "properties": {
+        "B1s1": {
+          "enum": [
+            "1-4",
+            "5-8",
+            "9-12",
+            "13-16"
+          ],
+          "title": "B1S1",
+          "type": "string"
+        },
+        "EM1": {
+          "enum": [
+            "Q1",
+            "Q2",
+            "Q3",
+            "Q4"
+          ],
+          "title": "Em1",
+          "type": "string"
+        },
+        "I1s2": {
+          "items": {
+            "enum": [
+              "piano",
+              "keyboard",
+              "percussion",
+              "organ",
+              "guitar",
+              "bass",
+              "violin",
+              "viola",
+              "cello",
+              "harp",
+              "strings",
+              "voice",
+              "trumpet",
+              "trombone",
+              "tuba",
+              "horn",
+              "brass",
+              "sax",
+              "oboe",
+              "bassoon",
+              "clarinet",
+              "piccolo",
+              "flute",
+              "pipe",
+              "synthesizer",
+              "ethnic_instruments",
+              "sound_effects",
+              "drum"
+            ],
+            "type": "string"
+          },
+          "maxItems": 28,
+          "minItems": 1,
+          "title": "I1S2",
+          "type": "array"
+        },
+        "K1": {
+          "enum": [
+            "major",
+            "minor"
+          ],
+          "title": "K1",
+          "type": "string"
+        },
+        "P4": {
+          "maximum": 11,
+          "minimum": 0,
+          "title": "P4",
+          "type": "integer"
+        },
+        "R1": {
+          "enum": [
+            "danceable",
+            "not_danceable"
+          ],
+          "title": "R1",
+          "type": "string"
+        },
+        "R3": {
+          "enum": [
+            "low",
+            "medium",
+            "high"
+          ],
+          "title": "R3",
+          "type": "string"
+        },
+        "S2s1": {
+          "enum": [
+            "beethoven",
+            "mozart",
+            "chopin",
+            "schubert",
+            "schumann",
+            "bach",
+            "haydn",
+            "brahms",
+            "handel",
+            "tchaikovsky",
+            "mendelssohn",
+            "dvorak",
+            "liszt",
+            "stravinsky",
+            "mahler",
+            "prokofiev",
+            "shostakovich"
+          ],
+          "title": "S2S1",
+          "type": "string"
+        },
+        "S4": {
+          "items": {
+            "enum": [
+              "new_age",
+              "electronic",
+              "rap",
+              "religious",
+              "international",
+              "easy_listening",
+              "avant_garde",
+              "rnb",
+              "latin",
+              "children",
+              "jazz",
+              "classical",
+              "comedy_spoken",
+              "pop_rock",
+              "reggae",
+              "stage",
+              "folk",
+              "blues",
+              "vocal",
+              "holiday",
+              "country",
+              "symphony"
+            ],
+            "type": "string"
+          },
+          "maxItems": 22,
+          "minItems": 1,
+          "title": "S4",
+          "type": "array"
+        },
+        "T1s1": {
+          "enum": [
+            "slow",
+            "moderate",
+            "fast"
+          ],
+          "title": "T1S1",
+          "type": "string"
+        },
+        "TM1": {
+          "enum": [
+            "0-15",
+            "15-30",
+            "30-45",
+            "45-60",
+            "60+"
+          ],
+          "title": "Tm1",
+          "type": "string"
+        },
+        "TS1s1": {
+          "enum": [
+            "1/4",
+            "2/4",
+            "3/4",
+            "4/4",
+            "3/8",
+            "6/8"
+          ],
+          "title": "Ts1S1",
+          "type": "string"
+        }
+      },
+      "required": [
+        "I1s2",
+        "R1",
+        "R3",
+        "S2s1",
+        "S4",
+        "B1s1",
+        "TS1s1",
+        "K1",
+        "T1s1",
+        "P4",
+        "EM1",
+        "TM1"
+      ],
+      "title": "MuseCocoAttributeTargets",
+      "type": "object"
+    },
+    "ThemeFamily": {
+      "additionalProperties": false,
+      "properties": {
+        "base_symbol": {
+          "pattern": "^[A-H]$",
+          "title": "Base Symbol",
+          "type": "string"
+        },
+        "intent": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Intent",
+          "type": "string"
+        },
+        "introduced_in_section_id": {
+          "pattern": "^S[1-9][0-9]?$",
+          "title": "Introduced In Section Id",
+          "type": "string"
+        },
+        "musecoco_attribute_targets": {
+          "$ref": "#/$defs/MuseCocoAttributeTargets"
+        },
+        "musecoco_text": {
+          "maxLength": 2000,
+          "minLength": 1,
+          "title": "Musecoco Text",
+          "type": "string"
+        },
+        "musecoco_text_style": {
+          "const": "official-template-aligned-v1",
+          "default": "official-template-aligned-v1",
+          "title": "Musecoco Text Style",
+          "type": "string"
+        },
+        "role": {
+          "maxLength": 80,
+          "minLength": 1,
+          "title": "Role",
+          "type": "string"
+        },
+        "seed_bars": {
+          "maximum": 16,
+          "minimum": 1,
+          "title": "Seed Bars",
+          "type": "integer"
+        },
+        "theme_family_id": {
+          "pattern": "^theme-[A-H]$",
+          "title": "Theme Family Id",
+          "type": "string"
+        }
+      },
+      "required": [
+        "theme_family_id",
+        "base_symbol",
+        "introduced_in_section_id",
+        "role",
+        "seed_bars",
+        "intent",
+        "musecoco_attribute_targets",
+        "musecoco_text"
+      ],
+      "title": "ThemeFamily",
+      "type": "object"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "generation_target_bars": {
+      "default": 12,
+      "maximum": 16,
+      "minimum": 1,
+      "title": "Generation Target Bars",
+      "type": "integer"
+    },
+    "global_tonality": {
+      "$ref": "#/$defs/GlobalTonality"
+    },
+    "key_normalization_policy": {
+      "const": "transpose_tonic_reject_mode_mismatch",
+      "default": "transpose_tonic_reject_mode_mismatch",
+      "title": "Key Normalization Policy",
+      "type": "string"
+    },
+    "key_normalization_required": {
+      "const": true,
+      "default": true,
+      "title": "Key Normalization Required",
+      "type": "boolean"
+    },
+    "output_motif_bars": {
+      "default": 8,
+      "maximum": 16,
+      "minimum": 1,
+      "title": "Output Motif Bars",
+      "type": "integer"
+    },
+    "schema_version": {
+      "const": "0.2-draft",
+      "default": "0.2-draft",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "story_id": {
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$",
+      "title": "Story Id",
+      "type": "string"
+    },
+    "tempo_bpm": {
+      "maximum": 240.0,
+      "minimum": 30.0,
+      "title": "Tempo Bpm",
+      "type": "number"
+    },
+    "tempo_normalization_required": {
+      "const": true,
+      "default": true,
+      "title": "Tempo Normalization Required",
+      "type": "boolean"
+    },
+    "theme_families": {
+      "items": {
+        "$ref": "#/$defs/ThemeFamily"
+      },
+      "maxItems": 8,
+      "minItems": 1,
+      "title": "Theme Families",
+      "type": "array"
+    },
+    "time_signature": {
+      "enum": [
+        "1/4",
+        "2/4",
+        "3/4",
+        "4/4",
+        "3/8",
+        "6/8"
+      ],
+      "title": "Time Signature",
+      "type": "string"
+    }
+  },
+  "required": [
+    "story_id",
+    "tempo_bpm",
+    "time_signature",
+    "global_tonality",
+    "theme_families"
+  ],
+  "title": "MuseCocoDelivery",
+  "type": "object"
+}
