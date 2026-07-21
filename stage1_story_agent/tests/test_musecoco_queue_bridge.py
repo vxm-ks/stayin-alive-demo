@@ -64,6 +64,7 @@ class MuseCocoQueueBridgeTests(unittest.TestCase):
         self.assertTrue(result.queue_ran)
         self.assertEqual(result.enqueue_result["enqueued"], ["task_001_story_theme_hash"])
         self.assertEqual(len(commands), 5)
+        self.assertIn("legasynth-musecoco", commands[1])
         self.assertEqual(commands[1][-3:], ["enqueue", "--source", "/mnt/d/task_packages"])
         self.assertEqual(
             commands[2][-4:],
