@@ -37,6 +37,10 @@ class PipelineConfig:
     stage1_python: Path = Path(sys.executable)
     midigpt_python: Path = Path(sys.executable)
     midigpt_model: str = "yellow"
+    stage2_repetition_mode: str = "off"
+    stage2_repetition_threshold: float = 0.82
+    stage2_repetition_max_occurrences: int = 2
+    stage2_repetition_candidates: int = 4
     stage3_python: Path = Path(sys.executable)
     fluidsynth: Path | None = None
     general_sf2: Path | None = None
@@ -284,6 +288,14 @@ def run_pipeline(
     if not dry_run:
         if not config.midigpt_model.strip():
             raise PipelineError("MIDI-GPT model name cannot be empty")
+        if config.stage2_repetition_mode not in {"off", "detect", "regenerate"}:
+            raise PipelineError("invalid Stage 2 repetition mode")
+        if not 0.0 < config.stage2_repetition_threshold <= 1.0:
+            raise PipelineError("Stage 2 repetition threshold must be in (0, 1]")
+        if config.stage2_repetition_max_occurrences < 1:
+            raise PipelineError("Stage 2 maximum repetition occurrences must be positive")
+        if config.stage2_repetition_candidates < 1:
+            raise PipelineError("Stage 2 repetition candidates must be positive")
         if config.tonality_policy not in {"loose", "strict"}:
             raise PipelineError("tonality policy must be loose or strict")
         for path, label in (
@@ -372,6 +384,10 @@ def run_pipeline(
                     "--heartbeat-package", f"{package_id}={package}",
                     "--stage3-render-plan", str(copied_render),
                     "--model", config.midigpt_model,
+                    "--repetition-mode", config.stage2_repetition_mode,
+                    "--repetition-threshold", str(config.stage2_repetition_threshold),
+                    "--repetition-max-occurrences", str(config.stage2_repetition_max_occurrences),
+                    "--repetition-candidates", str(config.stage2_repetition_candidates),
                     "--output", str(stage2_output),
                 ], cwd=workspace, log_path=logs / "stage2_midigpt.log",
                     timeout_seconds=config.stage2_timeout_s)

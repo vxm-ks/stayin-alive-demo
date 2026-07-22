@@ -21,6 +21,18 @@ D:\conda\python.exe -m legasynth_orchestrator `
 
 调性后处理通过 `--tonality-policy strict|loose` 选择。默认 `strict`：检测实际主音与调式，移到计划主音，并在大小调不一致时确定性修正自然音阶的第 3、6、7 级。`loose`：不检测、不改写生成 MIDI 的调性，只保留计划目标作为审计信息。
 
+Stage 2 尾部的整体重复检查通过
+`--stage2-repetition-mode off|detect|regenerate` 选择，默认 `off`。
+`detect` 只报告连续两小节音高织体的过度重复；`regenerate` 对计划允许编辑的位置局部调用
+MIDI-GPT，并保留主题、终止式和通道 10 心跳事件。常用完整运行参数为：
+
+```powershell
+--stage2-repetition-mode regenerate `
+--stage2-repetition-threshold 0.82 `
+--stage2-repetition-max-occurrences 2 `
+--stage2-repetition-candidates 4
+```
+
 默认从外层工作区的 `tools/` 查找 FluidSynth 与 `GeneralUser-GS.sf2`，也可以通过 `--fluidsynth`、`--general-sf2` 显式覆盖。
 
 主控启动时会读取仓库根目录中不提交 Git 的 `.env`。当前 Windows 原生 MIDI-GPT 部署可配置为：

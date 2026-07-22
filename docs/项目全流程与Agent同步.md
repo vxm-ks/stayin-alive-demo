@@ -1,5 +1,14 @@
 # LegaSynth 完整流程、系统边界与 Agent 同步记录
 
+## 2026-07-22 Stage 2 可选整体重复检测与局部再生成
+
+- 位置：MIDI-GPT 完成整曲之后、`stage3_handoff.json` 发布之前。
+- 用户接口：`off`（默认）、`detect`（只报告）、`regenerate`（局部再生成）。
+- 检测方法：以连续两个小节为窗口，合并所有非打击乐轨的同期音高织体；不分类旋律/和声，节奏不作为独立评分，排除 MIDI 通道 10。
+- 默认规则：相似度阈值 `0.82`，允许两次不变复现，从第三次高度相似出现开始标记。
+- 再生成边界：只修改 Stage 1 计划声明的 editable 小节；主题保护区、最终两小节终止式和完整心跳事件不变。每个目标默认生成四个 MIDI-GPT 候选并选择通过阈值者。
+- 审计：Stage 2 输出 `stage2_repetition_report.json`；再生成前保留 `final_completed.pre_repetition_gate.mid`，完成清单记录模式、阈值、问题数和报告哈希。
+
 ## 2026-07-22 Stage 3 感知型心跳动态平衡
 
 Stage 3 新增 `perceptual_event_adaptive`：使用 BS.1770 K-weighting 逐事件测量真实心跳与同期音乐，分别计算 S1/S2 增益并限制相邻变化；心跳增益具有下限，避免旧 RMS 模式在低频能量较高时反向衰减心跳。增益不足时只在事件附近对音乐执行有上限的 attack/hold/release 闪避，随后按目标 LUFS 和真峰值共同母带化。MIDI 时间、心音音高和播放速度均不改变，逐事件决策写入 CSV 和渲染清单。

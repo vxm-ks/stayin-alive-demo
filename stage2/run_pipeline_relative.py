@@ -14,6 +14,11 @@ from pathlib import Path
 
 from mido import MidiFile
 
+try:
+    from stage2.repetition_quality_gate import run_repetition_quality_gate
+except ModuleNotFoundError:  # Direct execution from the stage2 directory.
+    from repetition_quality_gate import run_repetition_quality_gate
+
 
 STAGE2_STATUS = "test"
 TEST_MOTIF_BARS = 8
@@ -238,6 +243,10 @@ def run_pipeline(
     stage2_plan: Path | None = None,
     heartbeat_packages: tuple[str, ...] = (),
     stage3_render_plan: Path | None = None,
+    repetition_mode: str = "off",
+    repetition_threshold: float = 0.82,
+    repetition_max_occurrences: int = 2,
+    repetition_candidates: int = 4,
 ) -> PipelineResult:
     stage2_dir = Path(__file__).resolve().parent
     combine_script = stage2_dir / "combine_midi_with_drums.py"
@@ -330,6 +339,19 @@ def run_pipeline(
         command.append("--resume")
     run_command(command, "MIDI-GPT extension", stage2_dir)
     validate_midi(output_absolute, "complete MIDI")
+    repetition_report_path = output_absolute.parent / "stage2_repetition_report.json"
+    repetition_report = run_repetition_quality_gate(
+        output_absolute,
+        repetition_report_path,
+        mode=repetition_mode,
+        stage2_plan=plan.path if plan else None,
+        model_name=model_name,
+        seed=seed,
+        threshold=repetition_threshold,
+        max_occurrences=repetition_max_occurrences,
+        candidates=repetition_candidates,
+    )
+    validate_midi(output_absolute, "quality-gated complete MIDI")
     after = heartbeat_signature(output_absolute)
     if after != before:
         raise RuntimeError("MIDI-GPT changed protected S1/S2 heartbeat events")
@@ -346,7 +368,19 @@ def run_pipeline(
             "b_midi": {"path": str(b_absolute), "sha256": sha256_file(b_absolute)},
             "stage2_plan": ({"path": str(plan.path), "sha256": plan.sha256} if plan else None),
         },
-        "settings": {"bpm": bpm, "time_signature": time_signature, "model": model_name, "seed": seed},
+        "settings": {
+            "bpm": bpm, "time_signature": time_signature, "model": model_name, "seed": seed,
+            "repetition_mode": repetition_mode,
+            "repetition_threshold": repetition_threshold,
+            "repetition_max_occurrences": repetition_max_occurrences,
+            "repetition_candidates": repetition_candidates,
+        },
+        "repetition_quality_gate": {
+            "report": str(repetition_report_path),
+            "report_sha256": sha256_file(repetition_report_path),
+            "initial_issue_count": repetition_report["initial_issue_count"],
+            "final_issue_count": repetition_report["final_issue_count"],
+        },
         "protected_heartbeat": {"preserved": True, "midi_messages": len(after)},
         "input_channel_10_cleanup": {
             "policy": "remove_all_before_heartbeat_refill",
@@ -403,6 +437,13 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--model", default="yellow")
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--resume", action="store_true")
+    parser.add_argument(
+        "--repetition-mode", choices=["off", "detect", "regenerate"], default="off",
+        help="optional Stage 2 tail quality gate (default: off)",
+    )
+    parser.add_argument("--repetition-threshold", type=float, default=0.82)
+    parser.add_argument("--repetition-max-occurrences", type=int, default=2)
+    parser.add_argument("--repetition-candidates", type=int, default=4)
     args = parser.parse_args(argv)
     if args.stage1_output_base:
         if args.a_midi or args.b_midi or args.stage2_plan:
@@ -417,6 +458,9 @@ def main(argv: list[str] | None = None) -> int:
         args.a_midi, args.b_midi, args.bpm, args.time_signature, args.output,
         model_name=args.model, seed=args.seed, resume=args.resume, stage2_plan=args.stage2_plan,
         heartbeat_packages=tuple(args.heartbeat_package), stage3_render_plan=args.stage3_render_plan,
+        repetition_mode=args.repetition_mode, repetition_threshold=args.repetition_threshold,
+        repetition_max_occurrences=args.repetition_max_occurrences,
+        repetition_candidates=args.repetition_candidates,
     )
     return 0
 

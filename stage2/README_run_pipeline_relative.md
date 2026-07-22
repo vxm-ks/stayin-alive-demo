@@ -21,6 +21,36 @@ python .\run_pipeline_relative.py .\inputs\A.mid .\inputs\B.mid `
 `stage3_midi_renderer --input-midi` 的输入。不传 `--stage2-plan` 时继续使用
 旧的 42 号闭镲行为，仅用于兼容原来的独立运行方式。
 
+## 可选的两小节整体重复质量门
+
+Stage 2 在 MIDI-GPT 完成整曲之后、发布 Stage 3 handoff 之前提供独立的重复检测模块。
+它不区分旋律与和声，而是合并全部非打击乐轨，按连续两个小节比较整体音高织体；
+通道 10、鼓轨和心跳轨完全排除，节奏不会作为独立重复分数。
+
+该功能必须由用户显式选择：
+
+- `off`：默认值，不检测、不重新生成；
+- `detect`：只生成 `stage2_repetition_report.json`，不改变 MIDI；
+- `regenerate`：检测第三次及以后的高度相似两小节块，并让 MIDI-GPT 生成四个局部候选，选择重复度低于阈值的一版。
+
+```powershell
+D:\LegaSynth\stage2\.conda_midigpt\python.exe .\stage2\run_pipeline_relative.py `
+  --stage1-output-base ".\stage1_story_agent\outputs\story-001" `
+  --heartbeat-package "patient=.\heartbeat_package" `
+  --stage3-render-plan ".\legasynth_orchestrator\examples\single_patient_render_plan.json" `
+  --repetition-mode regenerate `
+  --repetition-threshold 0.82 `
+  --repetition-max-occurrences 2 `
+  --repetition-candidates 4 `
+  --output ".\stage2\outputs\story-001\final_completed.mid"
+```
+
+`regenerate` 只允许修改 `stage2_plan.json` 标出的 editable 小节，不修改受保护主题；
+最终两小节终止式也保持不变。处理前 MIDI 保存为
+`final_completed.pre_repetition_gate.mid`，处理后重新验证通道 10 事件完全一致。
+默认允许同一两小节材料出现两次，第三次相似度达到 `0.82` 才处理；若用户希望
+第二次出现即处理，可显式设置 `--repetition-max-occurrences 1`。
+
 ## Stage 1 → Stage 2 → Stage 3 自动衔接
 
 当 Stage 1 已发布四个同前缀目录，并已完成 `generated_themes` 后处理时，可以只传 Stage 1 的输出基名：
@@ -174,6 +204,7 @@ outputs/
 ├─ combined_with_drums.mid
 ├─ final_completed.mid
 ├─ stage2_completion_manifest.json
+├─ stage2_repetition_report.json
 └─ stage3_handoff.json
 ```
 

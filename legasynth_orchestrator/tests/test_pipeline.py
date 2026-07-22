@@ -134,6 +134,9 @@ class OrchestratorTests(unittest.TestCase):
         ])
         stage2_command = runner.commands["stage2_midigpt"]
         self.assertEqual(stage2_command[stage2_command.index("--model") + 1], "yellow")
+        self.assertEqual(
+            stage2_command[stage2_command.index("--repetition-mode") + 1], "off"
+        )
         stage1_command = runner.commands["story_and_musecoco"]
         self.assertEqual(
             stage1_command[stage1_command.index("--tonality-policy") + 1], "strict"

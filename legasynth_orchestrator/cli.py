@@ -61,6 +61,14 @@ def build_parser() -> argparse.ArgumentParser:
         default=os.getenv("LEGASYNTH_MIDIGPT_MODEL", "yellow"),
         help="MIDI-GPT pretrained model name (default: yellow)",
     )
+    parser.add_argument(
+        "--stage2-repetition-mode", choices=["off", "detect", "regenerate"],
+        default=os.getenv("LEGASYNTH_STAGE2_REPETITION_MODE", "off"),
+        help="Stage 2 tail repetition gate: off, detect, or regenerate (default: off)",
+    )
+    parser.add_argument("--stage2-repetition-threshold", type=float, default=0.82)
+    parser.add_argument("--stage2-repetition-max-occurrences", type=int, default=2)
+    parser.add_argument("--stage2-repetition-candidates", type=int, default=4)
     parser.add_argument("--stage3-python", type=Path, default=Path(sys.executable))
     parser.add_argument(
         "--fluidsynth", type=Path,
@@ -89,6 +97,10 @@ def main(argv: list[str] | None = None) -> int:
         workspace=_default_workspace(), runtime_root=args.runtime_root,
         stage1_python=args.stage1_python, midigpt_python=args.midigpt_python,
         midigpt_model=args.midigpt_model,
+        stage2_repetition_mode=args.stage2_repetition_mode,
+        stage2_repetition_threshold=args.stage2_repetition_threshold,
+        stage2_repetition_max_occurrences=args.stage2_repetition_max_occurrences,
+        stage2_repetition_candidates=args.stage2_repetition_candidates,
         stage3_python=args.stage3_python, fluidsynth=args.fluidsynth,
         general_sf2=args.general_sf2, wsl_distro=args.wsl_distro,
         tonality_policy=args.tonality_policy,
