@@ -1,5 +1,9 @@
 # LegaSynth 完整流程、系统边界与 Agent 同步记录
 
+## 2026-07-21 本地全流程主控
+
+新增 `legasynth_orchestrator/`，在无前端条件下提供本机单任务一键调用。主控复制输入到隔离 job 目录，依次运行心音 Stage 1、Story Agent/WSL MuseCoco、Stage 2/MIDI-GPT 和 Stage 3，记录逐阶段日志、状态、失败信息和 SHA-256。`--dry-run` 及假执行器测试覆盖完整业务编排但不会启动任何真实模型。主控只调度冻结接口，不接管各阶段业务权威。
+
 ## 2026-07-21 Stage 2 测试状态与自动交接
 
 当前 Stage 2 正式入口暂标记为测试状态：固定三段 `A-B-A`，每段接收 8 小节 Stage 1 主题并生成后续 8 小节，总计 48 小节。Stage 2 在复制 A/B 素材时强制移除所有原有 MIDI 通道 10 消息，再按 `stage2_plan.json` 重建并保护 S1/S2 心跳轨。入口新增 `--stage1-output-base` 自动发现并验签 Stage 1 的计划与最终主题；完成后生成 `stage3_handoff.json`，Stage 3 可用 `render-packages --stage2-handoff` 自动加载并验签完整 MIDI、render plan 和多个 heartbeat package。通用乐器 SF2 仍由 Stage 3 显式提供。

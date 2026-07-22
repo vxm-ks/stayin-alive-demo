@@ -1,0 +1,75 @@
+"""Command-line entry point for the local one-click pipeline."""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+
+from .pipeline import PipelineConfig, PipelineError, run_pipeline
+
+
+def _default_workspace() -> Path:
+    return Path(__file__).resolve().parents[1]
+
+
+def _default_asset_root() -> Path:
+    workspace = _default_workspace()
+    if (workspace / "tools").is_dir():
+        return workspace
+    return workspace.parent.parent
+
+
+def build_parser() -> argparse.ArgumentParser:
+    workspace = _default_workspace()
+    assets = _default_asset_root()
+    parser = argparse.ArgumentParser(prog="legasynth_orchestrator")
+    parser.add_argument("--story", required=True, help="story text")
+    parser.add_argument("--heartbeat-wav", type=Path, required=True)
+    parser.add_argument("--rhythm-plan", type=Path, required=True)
+    parser.add_argument("--render-plan", type=Path, required=True)
+    parser.add_argument("--package-id", default="patient")
+    parser.add_argument("--runtime-root", type=Path, default=workspace / "runtime")
+    parser.add_argument("--stage1-python", type=Path, default=Path(sys.executable))
+    parser.add_argument(
+        "--midigpt-python", type=Path,
+        default=Path(os.getenv("LEGASYNTH_MIDIGPT_PYTHON", sys.executable)),
+    )
+    parser.add_argument("--stage3-python", type=Path, default=Path(sys.executable))
+    parser.add_argument(
+        "--fluidsynth", type=Path,
+        default=assets / "tools" / "fluidsynth-2.5.6" / "fluidsynth-v2.5.6-win10-x64-cpp11" / "bin" / "fluidsynth.exe",
+    )
+    parser.add_argument(
+        "--general-sf2", type=Path,
+        default=assets / "tools" / "soundfonts" / "GeneralUser-GS.sf2",
+    )
+    parser.add_argument("--wsl-distro", default="Ubuntu")
+    parser.add_argument(
+        "--dry-run", action="store_true",
+        help="exercise orchestration with synthetic artifacts; never invoke any model",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    args = build_parser().parse_args(argv)
+    config = PipelineConfig(
+        workspace=_default_workspace(), runtime_root=args.runtime_root,
+        stage1_python=args.stage1_python, midigpt_python=args.midigpt_python,
+        stage3_python=args.stage3_python, fluidsynth=args.fluidsynth,
+        general_sf2=args.general_sf2, wsl_distro=args.wsl_distro,
+    )
+    try:
+        job = run_pipeline(
+            story_text=args.story, heartbeat_wav=args.heartbeat_wav,
+            rhythm_plan=args.rhythm_plan, render_plan=args.render_plan,
+            config=config, package_id=args.package_id, dry_run=args.dry_run,
+        )
+    except PipelineError as exc:
+        print(f"LegaSynth pipeline failed: {exc}", file=sys.stderr)
+        return 2
+    print(json.dumps({"status": "COMPLETED", "job_dir": str(job)}, ensure_ascii=False))
+    return 0

@@ -1,0 +1,23 @@
+{
+  "schema_version": "1.0",
+  "heartbeat_channel": 10,
+  "note_map": {"36": "S1", "38": "S2"},
+  "heartbeat_conditioning_profile": "speaker_safe_loud_v1",
+  "velocity_gamma": 1.0,
+  "default_material_rule": {
+    "mode": "round_robin_per_cycle",
+    "package_ids": ["patient"],
+    "gain_db": 0.0
+  },
+  "section_material_rules": [],
+  "mix": {
+    "mode": "event_window_relative",
+    "music_gain_db": -4.0,
+    "heartbeat_gain_db": 0.0,
+    "heartbeat_over_music_db": 4.0,
+    "maximum_heartbeat_boost_db": 12.0,
+    "event_window_ms": 250,
+    "true_peak_ceiling_dbtp": -1.0,
+    "publish_stems": false
+  }
+}

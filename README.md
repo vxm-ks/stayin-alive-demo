@@ -32,7 +32,7 @@ MuseCoco 官方代码与权重采用外部部署，LegaSynth 不修改或转存�
 - MuseCoco/MIDI-GPT 权重保存在 WSL 或模型缓存中，不进入 Git/LFS。
 - 发布前运行 `.\scripts\audit_repository.ps1` 检查大文件、密钥和本机路径。
 
-项目正式流程包含九个已实现的处理、规划、框架与渲染模块：
+项目正式流程包含十个已实现的处理、规划、框架、渲染与主控模块：
 
 1. [`heart_extraction/`](heart_extraction/)：从原始 WAV 自动分析稳定区间，筛选 S1/S2，输出 Stable、Authentic、Regularized 三组 Base/Clean/Enhanced 音频及每个音频的时间—能量图。
 2. [`tempo_bar_renderer/`](tempo_bar_renderer/)：读取第一模块生成的 9 个 WAV 中任意一个，先返回建议 BPM 范围，再让用户选择目标 BPM，最后生成一个 4/4、3/4、2/4 小节；不拉伸 S1/S2 本体。
@@ -43,6 +43,7 @@ MuseCoco 官方代码与权重采用外部部署，LegaSynth 不修改或转存�
 7. [`midigpt_scaffold_builder/`](midigpt_scaffold_builder/)：第二阶段确定性框架装配器 `0.1.1`；将内容计划、结构化音乐计划、心音事件和动机清单编译成等长多轨 `Score`、`GenerationRequest`、HTTP 请求体、可视 MIDI 与审计产物，不依赖 MIDI-GPT 权重。
 8. [`heartbeat_stage1/`](heartbeat_stage1/)：心音第一部分总入口；读取原始 WAV，严格生成 `regularized_events_enhanced`，再按用户/LLM提供的 `rhythm_plan.json` 输出真实事件心跳小节、MIDI、时间—能量图和可供后置鼓轨渲染使用的 `heartbeat_package`。
 9. [`stage3_midi_renderer/`](stage3_midi_renderer/)：读取第二阶段的完整 MIDI；支持旧版心跳 SoundFont 统一渲染，以及新版一次传入多个 `heartbeat_package`、按 plan 选择或轮换真实 S1/S2 音色、独立控制音乐/心跳响度并输出最终 WAV。完整 MIDI 始终是事件时序权威。
+10. [`legasynth_orchestrator/`](legasynth_orchestrator/)：本机单任务全流程主控；依次调用 Stage 1、WSL MuseCoco、Stage 2/MIDI-GPT 和 Stage 3，记录检查点、日志与哈希，并提供绝不调用模型的 `--dry-run`。
 
 MIDI-GPT 的论文、当前官方实现、模型、许可证和本项目接入建议见 [`docs/MIDI-GPT调研.md`](docs/MIDI-GPT调研.md)。
 

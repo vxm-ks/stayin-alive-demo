@@ -162,6 +162,8 @@ class PackageRendererTests(unittest.TestCase):
         handoff.write_text(json.dumps({
             "schema_version": "stage2-stage3-handoff-v1",
             "stage2_status": "test",
+            "heartbeat_channel": 10,
+            "note_map": {"36": "S1", "38": "S2"},
             "complete_midi": {"path": self.midi.name, "sha256": _sha256(self.midi)},
             "heartbeat_packages": [{
                 "id": "a", "path": os.path.relpath(self.a, self.root),

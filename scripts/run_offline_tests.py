@@ -19,6 +19,7 @@ TEST_DIRECTORIES = (
     "stage3_midi_renderer/tests",
     "wav_track_mixer/tests",
     "heartbeat_post_renderer/tests",
+    "legasynth_orchestrator/tests",
 )
 
 

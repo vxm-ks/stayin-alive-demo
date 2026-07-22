@@ -32,6 +32,7 @@ processed_heartbeat/
 processor_validation/
 
 # Generated outputs and runtime state
+runtime/
 outputs/
 **/outputs/
 diagnostics/
