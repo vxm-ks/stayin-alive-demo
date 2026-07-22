@@ -1,6 +1,6 @@
 # LegaSynth 本地全流程主控
 
-该模块在没有前端的情况下串联完整业务流程。当前只支持 Stage 2 测试合同：48 小节 `A-B-A`，每段为 8 小节主题加 8 小节 MIDI-GPT 填充，同时只允许一个任务运行。
+该模块在没有前端的情况下串联完整业务流程。Stage 2 消费 Stage 1 的正式任意曲式计划，不假定固定段数或总小节数；主控同时只允许一个任务运行。
 
 ## 真实运行
 
@@ -16,7 +16,7 @@ D:\conda\python.exe -m legasynth_orchestrator `
 
 1. 原始 WAV 到 `heartbeat_package`；
 2. DeepSeek 故事规划、WSL MuseCoco 生成与 8 小节后处理；
-3. Stage 2 自动发现 A/B 主题，删除输入原有通道 10，重建心跳轨并运行 MIDI-GPT；
+3. Stage 2 自动发现计划引用的全部主题家族，按任意 section 序列装配，删除输入原有通道 10，重建心跳轨并只在 editable 范围运行 MIDI-GPT；
 4. Stage 3 读取带哈希 handoff，使用 FluidSynth 和真实心音素材生成 `final_mix.wav`。
 
 调性后处理通过 `--tonality-policy strict|loose` 选择。默认 `strict`：检测实际主音与调式，移到计划主音，并在大小调不一致时确定性修正自然音阶的第 3、6、7 级。`loose`：不检测、不改写生成 MIDI 的调性，只保留计划目标作为审计信息。

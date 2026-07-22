@@ -34,8 +34,8 @@ def load_stage2_handoff(path: Path) -> tuple[Path, Path, dict[str, Path]]:
         raise Stage3RenderError(f"invalid Stage 2 handoff: {exc}") from exc
     if data.get("schema_version") != "stage2-stage3-handoff-v1":
         raise Stage3RenderError("unsupported Stage 2 handoff schema")
-    if data.get("stage2_status") != "test":
-        raise Stage3RenderError("Stage 2 handoff must declare the current test status")
+    if data.get("stage2_status") not in {"test", "production"}:
+        raise Stage3RenderError("Stage 2 handoff must declare test or production status")
     if data.get("heartbeat_channel") != 10 or data.get("note_map") != {"36": "S1", "38": "S2"}:
         raise Stage3RenderError("Stage 2 handoff heartbeat channel or note map differs from contract")
     midi_entry = data.get("complete_midi")

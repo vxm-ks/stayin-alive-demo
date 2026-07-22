@@ -9,6 +9,7 @@ from mido import Message, MetaMessage, MidiFile, MidiTrack
 
 from stage2.combine_midi_with_drums import build_heartbeat_track_from_plan, combine_midi_with_drums
 from stage2.run_pipeline_relative import load_stage2_plan, resolve_stage1_inputs
+from stage2.plan_assembler import assemble_from_plan, build_generation_regions
 
 
 def make_plan(bpm: float = 96.0) -> dict:
@@ -47,13 +48,14 @@ class PipelineAdapterTests(unittest.TestCase):
 
     def test_plan_maps_to_fixed_test_8_plus_8_layout(self) -> None:
         settings = load_stage2_plan(self.write_plan(make_plan()), self.root)
-        self.assertEqual(settings.gap_bars, 8)
+        self.assertEqual(len(settings.sections), 3)
+        self.assertEqual(settings.form_string, "A-B-A")
         self.assertEqual(settings.total_bars, 48)
 
     def test_plan_rejects_legacy_four_plus_twelve_layout(self) -> None:
         data = make_plan()
         data["sections"][0]["input_motif_bars"] = 4
-        with self.assertRaisesRegex(ValueError, "8-bar motif"):
+        with self.assertRaisesRegex(ValueError, "inconsistent"):
             load_stage2_plan(self.write_plan(data), self.root)
 
     def test_plan_with_unprotected_motif_is_rejected(self) -> None:
@@ -116,6 +118,7 @@ class PipelineAdapterTests(unittest.TestCase):
             final = themes / f"theme-{symbol}" / "final.mid"
             final.write_bytes(b"MThd" + symbol.encode())
             items.append({
+                "theme_family_id": f"theme-{symbol}",
                 "base_symbol": symbol,
                 "final_midi": f"theme-{symbol}/final.mid",
                 "final_sha256": hashlib.sha256(final.read_bytes()).hexdigest(),
@@ -126,8 +129,79 @@ class PipelineAdapterTests(unittest.TestCase):
         }), encoding="utf-8")
         resolved = resolve_stage1_inputs(base, self.root)
         self.assertEqual(resolved.stage2_plan, plan)
-        self.assertEqual(resolved.a_midi.name, "final.mid")
-        self.assertEqual(resolved.b_midi.parent.name, "theme-B")
+        self.assertEqual(resolved.theme_midis["theme-A"].name, "final.mid")
+        self.assertEqual(resolved.theme_midis["theme-B"].parent.name, "theme-B")
+
+    def test_arbitrary_form_compiles_dynamic_generation_ranges(self) -> None:
+        data = make_plan()
+        data["form_string"] = "A-B-A'-C"
+        data["total_bars"] = 64
+        sections = []
+        labels = ("A", "B", "A'", "C")
+        for index, label in enumerate(labels, 1):
+            start = 1 + (index - 1) * 16
+            relation = "variation" if label == "A'" else "introduce"
+            access = "modifiable" if relation == "variation" else "extension_only"
+            sections.append({
+                "section_id": f"S{index}", "form_label": label,
+                "theme_family_id": f"theme-{label[0]}", "relation": relation,
+                "source_section_id": "S1" if relation == "variation" else None,
+                "material_source": "midigpt_variation" if relation == "variation" else "musecoco_seed",
+                "bar_start": start, "bar_end": start + 15,
+                "input_motif_bars": 8, "target_section_bars": 16, "extension_bars": 8,
+                "extension_method": "midigpt_transform" if relation == "variation" else "midigpt_extend",
+                "tempo_bpm": 80 + index * 4, "source_tension": 0.3,
+                "tension_level": "low",
+                "drum_pattern": {"pattern": "single_pulse_per_bar", "time_signature": "4/4", "kick_beats": [1.0], "snare_beats": [], "closed_hihat_beats": []},
+                "midigpt_access": access,
+                "protected_bar_ranges": [] if access == "modifiable" else [{"bar_start": start, "bar_end": start + 7}],
+                "editable_bar_ranges": [{"bar_start": start, "bar_end": start + 15}] if access == "modifiable" else [{"bar_start": start + 8, "bar_end": start + 15}],
+            })
+        data["sections"] = sections
+        path = self.write_plan(data)
+        settings = load_stage2_plan(path, self.root)
+        self.assertEqual(settings.form_string, "A-B-A'-C")
+        self.assertEqual(len(settings.sections), 4)
+        resolved = self.root / "resolved.json"
+        data["sections"] = list(settings.sections)
+        resolved.write_text(json.dumps(data), encoding="utf-8")
+        jobs = build_generation_regions(resolved, 64)
+        self.assertEqual([(job.gap_start, job.gap_end) for job in jobs], [(8, 15), (24, 31), (32, 47), (56, 63)])
+
+        def write_theme(path: Path, pitch: int, ppq: int) -> None:
+            midi = MidiFile(type=1, ticks_per_beat=ppq)
+            track = MidiTrack()
+            track.append(Message("note_on", channel=0, note=pitch, velocity=80, time=0))
+            track.append(Message("note_off", channel=0, note=pitch, velocity=0, time=ppq))
+            track.append(Message("note_on", channel=9, note=42, velocity=70, time=0))
+            track.append(Message("note_off", channel=9, note=42, velocity=0, time=ppq // 4))
+            track.append(MetaMessage("end_of_track", time=8 * 4 * ppq - ppq - ppq // 4))
+            midi.tracks.append(track)
+            midi.save(path)
+
+        themes = {}
+        for symbol, pitch, ppq in (("A", 60, 480), ("B", 65, 240), ("C", 67, 960)):
+            theme = self.root / f"{symbol}.mid"
+            write_theme(theme, pitch, ppq)
+            themes[f"theme-{symbol}"] = theme
+        assembled = self.root / "arbitrary.mid"
+        audit = assemble_from_plan(theme_midis=themes, plan_path=resolved, output_path=assembled)
+        self.assertEqual(audit["form_string"], "A-B-A'-C")
+        self.assertEqual(audit["section_count"], 4)
+        self.assertEqual(audit["removed_channel_10_messages"], 6)
+        rendered = MidiFile(assembled)
+        self.assertEqual(rendered.ticks_per_beat, 480)
+        music_onsets = []
+        for track in rendered.tracks:
+            tick = 0
+            for message in track:
+                tick += message.time
+                if message.type == "note_on" and message.velocity and getattr(message, "channel", None) != 9:
+                    music_onsets.append((tick, message.note))
+        self.assertIn((0, 60), music_onsets)
+        self.assertIn((16 * 1920, 65), music_onsets)
+        self.assertNotIn((32 * 1920, 60), music_onsets)
+        self.assertIn((48 * 1920, 67), music_onsets)
 
 
 if __name__ == "__main__":

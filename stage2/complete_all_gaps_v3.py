@@ -17,7 +17,7 @@ complete_all_gaps_v3.py
 1. 本程序的输入只有 combined_with_drums.mid。
 2. BPM、拍号、PPQ、总小节数都从输入 MIDI 自动读取。
 3. 当前测试状态下，A、B、第二次 A 都固定为 8 小节。
-4. 每段空白固定为 8 小节，形成 8+8。
+4. 段落数、来源段和可编辑范围全部来自 stage2_plan.json，不假定固定曲式或段长。
 7. 空白1按照前面的 A 续写。
 8. 空白2按照前面的 B 续写。
 9. 空白3按照前面的第二次 A 续写。
@@ -69,14 +69,15 @@ from midigpt.inference import (
     TrackPrompt,
 )
 
+try:
+    from stage2.plan_assembler import build_generation_regions
+except ModuleNotFoundError:
+    from plan_assembler import build_generation_regions
+
 
 # ------------------------------------------------------------
 # 固定参数
 # ------------------------------------------------------------
-
-# 当前 Stage 2 测试状态：8 小节主题 + 8 小节扩写。
-SEGMENT_BARS = 8
-GAP_BARS = 8
 
 # 每次让 MIDI-GPT 生成 4 小节。
 BLOCK_BARS = 4
@@ -102,29 +103,6 @@ MIN_MELODY_SOUNDED_BARS = 3
 MIN_MELODY_DISTINCT_PITCHES = 3
 MIN_MELODY_PITCH_CHANGES = 3
 MAX_MELODY_CHORD_ONSET_RATIO = 0.50
-
-
-@dataclass(frozen=True)
-class GapPlan:
-    """
-    描述一段空白区域以及它前面的参考音乐片段。
-
-    name：
-        空白区域名称，例如 gap1。
-
-    source_start/source_end：
-        前一个音乐片段的起止小节，均为 0-based 闭区间。
-
-    gap_start/gap_end：
-        需要补全的空白区域起止小节，均为 0-based 闭区间。
-    """
-
-    name: str
-    source_start: int
-    source_end: int
-    gap_start: int
-    gap_end: int
-
 
 
 @dataclass(frozen=True)
@@ -207,56 +185,6 @@ def validate_equal_bar_counts(score: Score) -> int:
             )
 
     return total_bars
-
-
-def build_gap_plans(gap_bars: int) -> list[GapPlan]:
-    """
-    根据固定结构计算三段空白和三个参考片段的位置。
-
-    固定结构：
-        A(4) → gap1 → B(4) → gap2 → A(4) → gap3
-    """
-    a1_start = 0
-    a1_end = a1_start + SEGMENT_BARS - 1
-
-    gap1_start = a1_end + 1
-    gap1_end = gap1_start + gap_bars - 1
-
-    b_start = gap1_end + 1
-    b_end = b_start + SEGMENT_BARS - 1
-
-    gap2_start = b_end + 1
-    gap2_end = gap2_start + gap_bars - 1
-
-    a2_start = gap2_end + 1
-    a2_end = a2_start + SEGMENT_BARS - 1
-
-    gap3_start = a2_end + 1
-    gap3_end = gap3_start + gap_bars - 1
-
-    return [
-        GapPlan(
-            name="gap1_after_A",
-            source_start=a1_start,
-            source_end=a1_end,
-            gap_start=gap1_start,
-            gap_end=gap1_end,
-        ),
-        GapPlan(
-            name="gap2_after_B",
-            source_start=b_start,
-            source_end=b_end,
-            gap_start=gap2_start,
-            gap_end=gap2_end,
-        ),
-        GapPlan(
-            name="gap3_after_A",
-            source_start=a2_start,
-            source_end=a2_end,
-            gap_start=gap3_start,
-            gap_end=gap3_end,
-        ),
-    ]
 
 
 def track_has_notes_in_range(
@@ -440,9 +368,10 @@ def validate_melody_candidate(
         target_bars[-1],
     )
 
+    target_bar_count = len(target_bars)
     min_onsets = max(
-        MIN_MELODY_ONSETS,
-        min(12, round(source_stats.onset_count * 0.50)),
+        min(MIN_MELODY_ONSETS, 2 * target_bar_count),
+        min(3 * target_bar_count, round(source_stats.onset_count * 0.50)),
     )
     min_distinct = max(
         MIN_MELODY_DISTINCT_PITCHES,
@@ -464,10 +393,11 @@ def validate_melody_candidate(
             f"旋律事件太少：{stats.onset_count} < {min_onsets}"
         )
 
-    if stats.sounded_bars < MIN_MELODY_SOUNDED_BARS:
+    minimum_sounded_bars = min(MIN_MELODY_SOUNDED_BARS, target_bar_count)
+    if stats.sounded_bars < minimum_sounded_bars:
         reasons.append(
             f"有旋律的小节太少："
-            f"{stats.sounded_bars} < {MIN_MELODY_SOUNDED_BARS}"
+            f"{stats.sounded_bars} < {minimum_sounded_bars}"
         )
 
     if stats.distinct_pitches < min_distinct:
@@ -510,16 +440,11 @@ def split_into_blocks(
     if total <= 0:
         raise ValueError("空白区域长度必须大于 0。")
 
-    if total % BLOCK_BARS != 0:
-        raise ValueError(
-            f"空白长度 {total} 不能按每组 {BLOCK_BARS} 小节完整拆分。"
-        )
-
     blocks = []
 
     for block_start in range(start_bar, end_bar + 1, BLOCK_BARS):
         blocks.append(
-            list(range(block_start, block_start + BLOCK_BARS))
+            list(range(block_start, min(block_start + BLOCK_BARS, end_bar + 1)))
         )
 
     return blocks
@@ -617,7 +542,7 @@ def build_generation_request(
             temperature_escalation=1.0,
             model_dim=MODEL_DIM,
             mask_mode="attention",
-            bars_per_step=BLOCK_BARS,
+            bars_per_step=len(target_bars),
             tracks_per_step=1,
             shuffle=False,
         ),
@@ -1060,6 +985,7 @@ def complete_all_gaps(
     model_name: str,
     base_seed: int,
     resume: bool,
+    stage2_plan: Path,
 ) -> None:
     """
     执行正式的三段空白补全过程。
@@ -1089,19 +1015,9 @@ def complete_all_gaps(
     )
     bpm = detect_bpm(working_score)
 
-    gap_bars = GAP_BARS
-    expected_total_bars = (
-        3 * SEGMENT_BARS + 3 * gap_bars
-    )
-
-    if total_bars != expected_total_bars:
-        raise ValueError(
-            f"根据 BPM={bpm:.3f}，程序预计总长度应为 "
-            f"{expected_total_bars} 小节，"
-            f"但输入 MIDI 实际为 {total_bars} 小节。"
-        )
-
-    gap_plans = build_gap_plans(gap_bars)
+    if not stage2_plan.is_file():
+        raise FileNotFoundError(f"找不到 Stage 2 计划：{stage2_plan}")
+    gap_plans = build_generation_regions(stage2_plan, total_bars)
     drum_track_ids = find_drum_tracks(working_score)
 
     print()
@@ -1110,13 +1026,15 @@ def complete_all_gaps(
     print(f"  拍号：{numerator}/{denominator}")
     print(f"  PPQ：{working_score.resolution}")
     print(f"  总小节数：{total_bars}")
-    print(f"  每段空白：{gap_bars} 小节")
+    print(f"  动态生成区域：{len(gap_plans)} 个")
     print(f"  总轨道数：{len(working_score.tracks)}")
     print(f"  鼓轨 ID：{drum_track_ids}")
 
-    print()
-    print(f"正在加载 MIDI-GPT 模型：{model_name}")
-    engine = InferenceEngine.from_pretrained(model_name)
+    engine = None
+    if gap_plans:
+        print()
+        print(f"正在加载 MIDI-GPT 模型：{model_name}")
+        engine = InferenceEngine.from_pretrained(model_name)
 
     generation_index = 0
 
@@ -1222,6 +1140,7 @@ def complete_all_gaps(
                     temperature=current_temperature,
                 )
 
+                assert engine is not None
                 model_result = engine.session(
                     working_score,
                     request,
@@ -1307,35 +1226,33 @@ def complete_all_gaps(
             working_score.to_midi(str(checkpoint_path))
             print(f"检查点已保存：{checkpoint_path}")
 
-    # 三段全部生成后，单独处理整首作品的最后两小节。
-    final_plan = gap_plans[-1]
-    final_active_track_ids = find_active_melodic_tracks(
-        working_score,
-        final_plan.source_start,
-        final_plan.source_end,
-    )
-    final_melody_track_id, _ = choose_melody_track(
-        working_score,
-        final_active_track_ids,
-        final_plan.source_start,
-        final_plan.source_end,
-    )
-
-    key_name, cadence_start, cadence_end = apply_final_cadence(
-        score=working_score,
-        active_track_ids=final_active_track_ids,
-        melody_track_id=final_melody_track_id,
-        source_start=final_plan.source_start,
-        source_end=final_plan.source_end,
-        gap_start=final_plan.gap_start,
-        gap_end=final_plan.gap_end,
-    )
-
-    print()
-    print(
-        f"终止式已写入小节 {cadence_start}–{cadence_end}，"
-        f"估计调性：{key_name}"
-    )
+    cadence_plans = [
+        item for item in gap_plans
+        if item.gap_end == total_bars - 1 and item.gap_end - item.gap_start + 1 >= 2
+    ]
+    if cadence_plans:
+        final_plan = cadence_plans[-1]
+        final_active_track_ids = find_active_melodic_tracks(
+            working_score, final_plan.source_start, final_plan.source_end,
+        )
+        final_melody_track_id, _ = choose_melody_track(
+            working_score, final_active_track_ids,
+            final_plan.source_start, final_plan.source_end,
+        )
+        key_name, cadence_start, cadence_end = apply_final_cadence(
+            score=working_score,
+            active_track_ids=final_active_track_ids,
+            melody_track_id=final_melody_track_id,
+            source_start=final_plan.source_start,
+            source_end=final_plan.source_end,
+            gap_start=final_plan.gap_start,
+            gap_end=final_plan.gap_end,
+        )
+        print()
+        print(
+            f"终止式已写入小节 {cadence_start}–{cadence_end}，"
+            f"估计调性：{key_name}"
+        )
 
     output_path.parent.mkdir(
         parents=True,
@@ -1352,8 +1269,8 @@ def complete_all_gaps(
     print("全部空白补全完成。")
     print(f"输出文件：{output_path}")
     print("原始音乐片段和鼓轨未被模型返回版本覆盖。")
-    print("三段空白分别按照前面的 A、B、A 配器续写。")
-    print("所有 4 小节块均通过主旋律检查，结尾已加入终止式。")
+    print("所有计划内 editable 区域均按各自来源配器完成。")
+    print("所有生成块均通过主旋律检查；可编辑结尾已加入终止式。")
 
 
 def main() -> None:
@@ -1363,7 +1280,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(
         description=(
             "读取 combined_with_drums.mid，"
-            "按照 A/B/A 的配器逐块补全三段空白。"
+            "按照 Stage 1 任意曲式计划逐块补全 editable 区域。"
         )
     )
 
@@ -1371,6 +1288,13 @@ def main() -> None:
         "input_midi",
         type=Path,
         help="输入 combined_with_drums.mid",
+    )
+
+    parser.add_argument(
+        "--stage2-plan",
+        type=Path,
+        required=True,
+        help="Stage 1 stage2_plan.resolved.json",
     )
 
     parser.add_argument(
@@ -1409,6 +1333,7 @@ def main() -> None:
         model_name=args.model,
         base_seed=args.seed,
         resume=args.resume,
+        stage2_plan=args.stage2_plan,
     )
 
 

@@ -314,6 +314,11 @@ class DrumPatternInstruction(StrictModel):
 
 class Stage2SectionInstruction(StrictModel):
     section_id: SectionId
+    form_label: str = Field(pattern=r"^[A-H]'{0,3}$")
+    theme_family_id: ThemeFamilyId
+    relation: FormRelation
+    source_section_id: SectionId | None = None
+    material_source: MaterialSource
     bar_start: int = Field(ge=1, le=256)
     bar_end: int = Field(ge=1, le=256)
     input_motif_bars: int = Field(ge=1, le=16)

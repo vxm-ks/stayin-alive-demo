@@ -8,6 +8,8 @@
     "schema_version",
     "stage2_status",
     "story_id",
+    "form_string",
+    "total_bars",
     "complete_midi",
     "heartbeat_channel",
     "note_map",
@@ -16,8 +18,10 @@
   ],
   "properties": {
     "schema_version": {"const": "stage2-stage3-handoff-v1"},
-    "stage2_status": {"const": "test"},
+    "stage2_status": {"enum": ["test", "production"]},
     "story_id": {"type": ["string", "null"]},
+    "form_string": {"type": "string", "minLength": 1},
+    "total_bars": {"type": "integer", "minimum": 1, "maximum": 256},
     "complete_midi": {"$ref": "#/$defs/hashedFile"},
     "heartbeat_channel": {"const": 10},
     "note_map": {

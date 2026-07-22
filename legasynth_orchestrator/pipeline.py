@@ -185,8 +185,14 @@ def _dry_story(job_dir: Path, output_base: Path, story_id: str) -> None:
     stage2_dir.mkdir(parents=True)
     sections = []
     for index, start in enumerate((1, 17, 33), 1):
+        symbol = "B" if index == 2 else "A"
         sections.append({
-            "section_id": f"S{index}", "bar_start": start, "bar_end": start + 15,
+            "section_id": f"S{index}", "form_label": symbol,
+            "theme_family_id": f"theme-{symbol}",
+            "relation": "reprise" if index == 3 else "introduce",
+            "source_section_id": "S1" if index == 3 else None,
+            "material_source": "reuse_theme" if index == 3 else "musecoco_seed",
+            "bar_start": start, "bar_end": start + 15,
             "input_motif_bars": 8, "target_section_bars": 16, "extension_bars": 8,
             "extension_method": "midigpt_extend", "tempo_bpm": 96.0,
             "source_tension": 0.8 if index == 2 else 0.2,
@@ -230,8 +236,8 @@ def _dry_stage2(
     _dry_midi(output)
     handoff = job_dir / "stage2" / "stage3_handoff.json"
     handoff.write_bytes(_json_bytes({
-        "schema_version": "stage2-stage3-handoff-v1", "stage2_status": "test",
-        "story_id": story_id,
+        "schema_version": "stage2-stage3-handoff-v1", "stage2_status": "production",
+        "story_id": story_id, "form_string": "A-B-A", "total_bars": 48,
         "complete_midi": {"path": output.name, "sha256": _sha256(output)},
         "heartbeat_channel": 10, "note_map": {"36": "S1", "38": "S2"},
         "heartbeat_packages": [{

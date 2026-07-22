@@ -151,6 +151,11 @@ def compile_stage2_handoff(
         instructions.append(
             Stage2SectionInstruction(
                 section_id=compiled.section_id,
+                form_label=compiled.form_label,
+                theme_family_id=compiled.theme_family_id,
+                relation=compiled.relation,
+                source_section_id=compiled.source_section_id,
+                material_source=compiled.material_source,
                 bar_start=compiled.bar_start,
                 bar_end=compiled.bar_end,
                 input_motif_bars=input_bars,

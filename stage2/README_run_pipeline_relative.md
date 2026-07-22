@@ -1,301 +1,102 @@
-# MIDI 完整生成模块
+# Stage 2 正式任意曲式流水线
 
-> 当前状态：**测试模式**。只接受三段 `A-B-A`，每段固定为前 8 小节主题、后 8 小节 MIDI-GPT 填充，总计 48 小节。正式模式的任意曲式尚未在本入口启用。
+`run_pipeline_relative.py` 是 Stage 2 的正式入口。它不再假定 `A-B-A`、固定段数、固定 48 小节或统一速度，而是严格执行 Stage 1 发布的 `stage2_plan.json`。
 
-## 与 Stage 1 / Stage 3 的正式适配
+## 输入契约
 
-正式入口仍是 `run_pipeline_relative.py`。传入 Stage 1 生成的
-`stage2_plan.json` 后，入口会验证三段 A/B/A 的边界、8 小节主题、8 小节扩展、
-BPM、拍号以及保护/编辑范围都与当前算法一致；任何不一致都会停止运行。
-
-```powershell
-python .\run_pipeline_relative.py .\inputs\A.mid .\inputs\B.mid `
-  --stage2-plan .\inputs\stage2_plan.json `
-  --output .\outputs\final_completed.mid
-```
-
-传入计划后，鼓轨按逐段 tension/drum 指令生成通道 10 的 S1(36)/S2(38)
-心跳事件。MIDI-GPT 前后会比较这些事件；发生改动则拒绝输出交接清单。
-装配时会先检测并删除 A/B 输入中所有原有 MIDI 通道 10 消息，再填入计划规定的心跳轨，防止旧鼓点与真实心跳叠加。清理数量写入完成清单。
-最终产物为完整 MIDI 和 `stage2_completion_manifest.json`，可直接作为
-`stage3_midi_renderer --input-midi` 的输入。不传 `--stage2-plan` 时继续使用
-旧的 42 号闭镲行为，仅用于兼容原来的独立运行方式。
-
-## 可选的两小节整体重复质量门
-
-Stage 2 在 MIDI-GPT 完成整曲之后、发布 Stage 3 handoff 之前提供独立的重复检测模块。
-它不区分旋律与和声，而是合并全部非打击乐轨，按连续两个小节比较整体音高织体；
-通道 10、鼓轨和心跳轨完全排除，节奏不会作为独立重复分数。
-
-该功能必须由用户显式选择：
-
-- `off`：默认值，不检测、不重新生成；
-- `detect`：只生成 `stage2_repetition_report.json`，不改变 MIDI；
-- `regenerate`：检测第三次及以后的高度相似两小节块，并让 MIDI-GPT 生成四个局部候选，选择重复度低于阈值的一版。
+推荐直接传入 Stage 1 输出基名：
 
 ```powershell
 D:\LegaSynth\stage2\.conda_midigpt\python.exe .\stage2\run_pipeline_relative.py `
   --stage1-output-base ".\stage1_story_agent\outputs\story-001" `
-  --heartbeat-package "patient=.\heartbeat_package" `
-  --stage3-render-plan ".\legasynth_orchestrator\examples\single_patient_render_plan.json" `
-  --repetition-mode regenerate `
-  --repetition-threshold 0.82 `
-  --repetition-max-occurrences 2 `
-  --repetition-candidates 4 `
-  --output ".\stage2\outputs\story-001\final_completed.mid"
-```
-
-`regenerate` 只允许修改 `stage2_plan.json` 标出的 editable 小节，不修改受保护主题；
-最终两小节终止式也保持不变。处理前 MIDI 保存为
-`final_completed.pre_repetition_gate.mid`，处理后重新验证通道 10 事件完全一致。
-默认允许同一两小节材料出现两次，第三次相似度达到 `0.82` 才处理；若用户希望
-第二次出现即处理，可显式设置 `--repetition-max-occurrences 1`。
-
-## Stage 1 → Stage 2 → Stage 3 自动衔接
-
-当 Stage 1 已发布四个同前缀目录，并已完成 `generated_themes` 后处理时，可以只传 Stage 1 的输出基名：
-
-```powershell
-python .\stage2\run_pipeline_relative.py `
-  --stage1-output-base ".\stage1_story_agent\outputs\story-001" `
-  --heartbeat-package "patient_a=.\heartbeat_stage1\outputs\patient_a\heartbeat_package" `
+  --heartbeat-package "patient_a=.\heartbeat_package" `
   --stage3-render-plan ".\stage3_midi_renderer\examples\stage3_render_plan.example.json" `
   --output ".\stage2\outputs\story-001\final_completed.mid"
 ```
 
-入口会自动定位并验哈希：
+该方式会自动定位并校验：
 
-- `story-001-stage2/stage2_plan.json`；
-- `story-001-musecoco/generated_themes/theme-A/final.mid`；
-- `story-001-musecoco/generated_themes/theme-B/final.mid`。
+- `*-stage2/stage2_plan.json`；
+- `*-musecoco/generated_themes/theme-*/final.mid`；
+- `theme_manifest.json` 中每个主题文件的 SHA-256。
 
-成功后额外输出 `stage3_handoff.json`。它冻结完整 MIDI、render plan 和所有 heartbeat package 清单的 SHA-256，Schema 位于 `stage2/schemas/stage3_handoff.schema.json`。Stage 3 可直接运行：
+也可手动绑定任意数量的主题族：
 
 ```powershell
-python -m stage3_midi_renderer render-packages `
+D:\LegaSynth\stage2\.conda_midigpt\python.exe .\stage2\run_pipeline_relative.py `
+  --stage2-plan ".\inputs\stage2_plan.json" `
+  --theme "theme-A=.\inputs\A.mid" `
+  --theme "theme-B=.\inputs\B.mid" `
+  --theme "theme-C=.\inputs\C.mid" `
+  --output ".\outputs\final_completed.mid"
+```
+
+位置参数 `A.mid B.mid` 仅保留为旧命令兼容形式；正式接入应使用 `--stage1-output-base` 或重复的 `--theme`。
+
+## 任意曲式如何执行
+
+Stage 1 的每个 section 必须明确给出：
+
+- `section_id`、`form_label` 和连续的小节边界；
+- `theme_family_id`；
+- `relation`、`source_section_id` 和 `material_source`；
+- `midigpt_access`、`protected_ranges` 和 `editable_ranges`；
+- 逐段速度、拍号和心跳鼓轨计划。
+
+装配器按 section 顺序处理：
+
+- `fixed`：放置主题素材且不开放 MIDI-GPT 区域；
+- `extension_only`：保护开头主题，将其余声明区间作为续写目标；
+- `modifiable`：从较早的 `source_section_id` 取上下文，在声明区间生成变奏或发展。
+
+因此 `A`、`A-B-A`、`A-B-A'-C` 以及其他 1–16 段的合规结构使用同一套代码路径。主题 MIDI 的 PPQ 可不同，装配时统一换算；输入中的 MIDI 通道 10 会先全部移除，再严格按计划重建并保护心跳事件。MIDI-GPT 推理完成后会恢复逐段速度图。
+
+## 输出
+
+输出目录包含：
+
+```text
+combined_with_drums.mid
+stage2_plan.resolved.json
+final_completed.mid
+stage2_completion_manifest.json
+stage2_repetition_report.json       # 仅 detect/regenerate 时
+final_completed.pre_repetition_gate.mid # 仅 regenerate 时
+stage3_handoff.json                 # 提供 Stage 3 参数时
+```
+
+`stage2_plan.resolved.json` 是经过 Stage 2 严格校验、补齐显式素材关系后的冻结计划。`stage2_completion_manifest.json` 记录曲式、总小节数、各段速度、输入/输出哈希和通道 10 审计。`stage3_handoff.json` 使用 `production` 状态，并明确携带 `form_string` 与 `total_bars`。
+
+## 可选反重复质量门
+
+默认 `--repetition-mode off`。用户可选择：
+
+- `detect`：只报告连续两个小节的整体音高织体重复；
+- `regenerate`：仅对计划声明的 editable 区间局部重生成。
+
+```powershell
+--repetition-mode regenerate `
+--repetition-threshold 0.82 `
+--repetition-max-occurrences 2 `
+--repetition-candidates 4
+```
+
+节奏不作为独立重复分数。通道 10、保护主题区和最终终止式不会被该模块改写。
+
+## 中断续跑与验证
+
+使用相同输出路径加 `--resume` 可从 MIDI-GPT checkpoint 继续。运行前可检查入口与测试：
+
+```powershell
+D:\LegaSynth\stage2\.conda_midigpt\python.exe .\stage2\run_pipeline_relative.py --help
+D:\conda\python.exe -m unittest discover -s .\stage2\tests -v
+```
+
+Stage 3 可直接消费 handoff：
+
+```powershell
+D:\conda\python.exe -m stage3_midi_renderer render-packages `
   --stage2-handoff ".\stage2\outputs\story-001\stage3_handoff.json" `
   --general-sf2 "D:\soundfonts\general.sf2" `
   --output-dir ".\stage3_midi_renderer\outputs\story-001"
 ```
-
-该模块会依次完成：
-
-```text
-A.mid + B.mid
-        ↓
-拼接 A、B，并添加闭镲鼓轨
-        ↓
-combined_with_drums.mid
-        ↓
-使用 MIDI-GPT 补全三段空白
-        ↓
-final_completed.mid
-```
-
-## 1. 文件结构
-
-请将以下文件放在同一目录：
-
-```text
-stage2/
-├─ run_pipeline_relative.py
-├─ combine_midi_with_drums.py
-├─ complete_all_gaps_v3.py
-├─ inputs/
-│  ├─ A.mid
-│  └─ B.mid
-└─ outputs/
-```
-
-要求：
-
-- `A.mid` 和 `B.mid` 都是 8 小节；
-- 两个 MIDI 的拍号一致；
-- `inputs`、`outputs` 和 MIDI 文件名建议使用英文；
-- 使用已经安装 `midigpt` 的 Python 虚拟环境。
-
-## 2. 激活虚拟环境
-
-当前已验证的 Windows 原生部署为：
-
-```text
-Python: D:\LegaSynth\stage2\.conda_midigpt\python.exe
-Package: midigpt 0.3.2
-Model: yellow
-HF_HOME: D:\LegaSynth\stage2\.cache\huggingface
-```
-
-推荐不激活 Conda，直接使用专用解释器：
-
-```powershell
-D:\LegaSynth\stage2\.conda_midigpt\python.exe .\stage2\run_pipeline_relative.py ...
-```
-
-以下激活方式仅作为等价的手工运行方法。
-
-在项目目录中运行：
-
-```powershell
-..\.venv_midigpt\Scripts\Activate.ps1
-```
-
-激活成功后，PowerShell 开头会出现：
-
-```text
-(.venv_midigpt)
-```
-
-## 3. 运行完整流程
-
-例如 BPM 为 120、拍号为 3/4：
-
-```powershell
-python .\run_pipeline_relative.py `
-  .\inputs\A.mid `
-  .\inputs\B.mid `
-  --bpm 120 `
-  --time-signature 3/4 `
-  --output .\outputs\final_completed.mid
-```
-
-例如 BPM 为 96、拍号为 4/4：
-
-```powershell
-python .\run_pipeline_relative.py `
-  .\inputs\A.mid `
-  .\inputs\B.mid `
-  --bpm 96 `
-  --time-signature 4/4 `
-  --output .\outputs\final_completed.mid
-```
-
-## 4. 参数说明
-
-| 参数 | 含义 |
-|---|---|
-| `A.mid` | A 片段路径 |
-| `B.mid` | B 片段路径 |
-| `--bpm` | 全曲 BPM |
-| `--time-signature` | 拍号，例如 `3/4`、`4/4` |
-| `--output` | 最终 MIDI 输出路径 |
-| `--model` | MIDI-GPT 模型，默认 `yellow` |
-| `--seed` | 随机种子，默认 `42` |
-| `--resume` | 从第二阶段检查点继续 |
-
-指定模型和随机种子：
-
-```powershell
-python .\run_pipeline_relative.py `
-  .\inputs\A.mid `
-  .\inputs\B.mid `
-  --bpm 120 `
-  --time-signature 3/4 `
-  --model yellow `
-  --seed 42 `
-  --output .\outputs\final_completed.mid
-```
-
-## 5. 输出文件
-
-程序会在 `outputs` 目录生成：
-
-```text
-outputs/
-├─ combined_with_drums.mid
-├─ final_completed.mid
-├─ stage2_completion_manifest.json
-├─ stage2_repetition_report.json
-└─ stage3_handoff.json
-```
-
-其中：
-
-- `combined_with_drums.mid`：第一阶段生成的中间 MIDI；
-- `final_completed.mid`：补全三段空白后的最终 MIDI。
-
-运行过程中还可能暂时生成：
-
-```text
-final_completed.v3.checkpoint.mid
-```
-
-它用于中断后继续运行。全部完成后，检查点通常会自动删除。
-
-## 6. 中断后继续
-
-第二阶段中断后，使用相同的输出路径并添加 `--resume`：
-
-```powershell
-python .\run_pipeline_relative.py `
-  .\inputs\A.mid `
-  .\inputs\B.mid `
-  --bpm 120 `
-  --time-signature 3/4 `
-  --output .\outputs\final_completed.mid `
-  --resume
-```
-
-使用 `--resume` 时：
-
-- 第一阶段不会重新执行；
-- `outputs\combined_with_drums.mid` 必须仍然存在；
-- `--output` 必须与上一次运行相同。
-
-## 7. 相对路径注意事项
-
-请使用：
-
-```text
-.\inputs\A.mid
-.\inputs\B.mid
-.\outputs\final_completed.mid
-```
-
-不要手动改成包含中文目录的完整绝对路径。
-
-该入口会让两个子脚本在项目目录中运行，并向 MIDI-GPT 传递英文相对路径，避免底层 MIDI 读取器无法打开绝对中文路径。
-
-## 8. 常见问题
-
-### 找不到 `midigpt`
-
-确认已经激活虚拟环境：
-
-```powershell
-..\.venv_midigpt\Scripts\Activate.ps1
-```
-
-也可以检查：
-
-```powershell
-python -c "import midigpt; print(midigpt.__file__)"
-```
-
-### 找不到脚本
-
-确认以下三个文件在同一目录：
-
-```text
-run_pipeline_relative.py
-combine_midi_with_drums.py
-complete_all_gaps_v3.py
-```
-
-### MIDI 长度或拍号错误
-
-确认：
-
-- `A.mid` 和 `B.mid` 都是 8 小节；
-- 命令中的 `--time-signature` 与输入 MIDI 一致；
-- BPM 大于 0。
-
-### 不要修改脚本文件名
-
-`run_pipeline_relative.py` 会自动查找：
-
-```text
-combine_midi_with_drums.py
-complete_all_gaps_v3.py
-```
-
-因此这两个文件名必须保持不变。

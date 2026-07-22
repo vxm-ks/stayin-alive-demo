@@ -1,5 +1,14 @@
 # LegaSynth 完整流程、系统边界与 Agent 同步记录
 
+## 2026-07-22 Stage 2 任意曲式正式化
+
+- Stage 1→Stage 2 的每个 section 现显式交付 `form_label`、`theme_family_id`、`relation`、`source_section_id` 和 `material_source`，不再依靠 A/B 位置推断素材关系。
+- Stage 2 正式入口改为计划驱动的动态装配：支持 1–16 个连续 section、任意合规曲式、任意数量主题家族、不同主题 PPQ 和逐段速度。
+- `fixed` 直接放置受保护素材；`extension_only` 使用本段主题作为续写上下文；`modifiable` 使用计划指定的较早来源段生成变奏/发展。MIDI-GPT 仅写回 editable 范围。
+- 装配前移除所有输入主题的通道 10，按 Stage 1 计划重建心跳轨；补全后恢复逐段速度图并再次校验心跳事件。
+- 新增 `stage2_plan.resolved.json` 作为经严格校验的冻结计划；`stage3_handoff.json` 状态为 `production`，并显式包含 `form_string` 和 `total_bars`。主控和 Stage 3 不再假定 48 小节。
+- 离线回归覆盖 `A-B-A'-C`、变奏来源、动态编辑区间、PPQ 换算和通道 10 清理；MuseCoco 官方代码与 WSL wrapper 未修改。
+
 ## 2026-07-22 Stage 2 可选整体重复检测与局部再生成
 
 - 位置：MIDI-GPT 完成整曲之后、`stage3_handoff.json` 发布之前。
@@ -29,9 +38,9 @@ Stage 2 的真实推理环境已固定为 Windows 原生独立解释器，模型
 
 新增 `legasynth_orchestrator/`，在无前端条件下提供本机单任务一键调用。主控复制输入到隔离 job 目录，依次运行心音 Stage 1、Story Agent/WSL MuseCoco、Stage 2/MIDI-GPT 和 Stage 3，记录逐阶段日志、状态、失败信息和 SHA-256。`--dry-run` 及假执行器测试覆盖完整业务编排但不会启动任何真实模型。主控只调度冻结接口，不接管各阶段业务权威。
 
-## 2026-07-21 Stage 2 测试状态与自动交接
+## 2026-07-21 Stage 2 测试状态与自动交接（历史记录）
 
-当前 Stage 2 正式入口暂标记为测试状态：固定三段 `A-B-A`，每段接收 8 小节 Stage 1 主题并生成后续 8 小节，总计 48 小节。Stage 2 在复制 A/B 素材时强制移除所有原有 MIDI 通道 10 消息，再按 `stage2_plan.json` 重建并保护 S1/S2 心跳轨。入口新增 `--stage1-output-base` 自动发现并验签 Stage 1 的计划与最终主题；完成后生成 `stage3_handoff.json`，Stage 3 可用 `render-packages --stage2-handoff` 自动加载并验签完整 MIDI、render plan 和多个 heartbeat package。通用乐器 SF2 仍由 Stage 3 显式提供。
+该版本当时固定三段 `A-B-A`，每段接收 8 小节 Stage 1 主题并生成后续 8 小节，总计 48 小节。该限制已被 2026-07-22 的任意曲式正式入口取代；仅保留本节作为历史审计。
 
 ## 2026-07-21 Stage 1 / Stage 3 长度合同更新
 

@@ -785,11 +785,19 @@
           "title": "Extension Method",
           "type": "string"
         },
+        "form_label": {
+          "pattern": "^[A-H]'{0,3}$",
+          "title": "Form Label",
+          "type": "string"
+        },
         "input_motif_bars": {
           "maximum": 16,
           "minimum": 1,
           "title": "Input Motif Bars",
           "type": "integer"
+        },
+        "material_source": {
+          "$ref": "#/$defs/MaterialSource"
         },
         "midigpt_access": {
           "enum": [
@@ -808,10 +816,26 @@
           "title": "Protected Bar Ranges",
           "type": "array"
         },
+        "relation": {
+          "$ref": "#/$defs/FormRelation"
+        },
         "section_id": {
           "pattern": "^S[1-9][0-9]?$",
           "title": "Section Id",
           "type": "string"
+        },
+        "source_section_id": {
+          "anyOf": [
+            {
+              "pattern": "^S[1-9][0-9]?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Section Id"
         },
         "source_tension": {
           "maximum": 1.0,
@@ -838,10 +862,19 @@
           ],
           "title": "Tension Level",
           "type": "string"
+        },
+        "theme_family_id": {
+          "pattern": "^theme-[A-H]$",
+          "title": "Theme Family Id",
+          "type": "string"
         }
       },
       "required": [
         "section_id",
+        "form_label",
+        "theme_family_id",
+        "relation",
+        "material_source",
         "bar_start",
         "bar_end",
         "input_motif_bars",
