@@ -8,6 +8,7 @@ import os
 import shutil
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Literal
 from uuid import uuid4
 
 from pydantic import ValidationError
@@ -21,6 +22,9 @@ from .utils import json_bytes
 
 class MuseCocoPostprocessError(RuntimeError):
     """Raised when collected MuseCoco results cannot satisfy the Stage 1 contract."""
+
+
+TonalityPolicy = Literal["loose", "strict"]
 
 
 @dataclass(frozen=True)
@@ -58,7 +62,10 @@ def finalize_musecoco_results(
     musecoco_dir: str | Path,
     *,
     force: bool = False,
+    tonality_policy: TonalityPolicy = "strict",
 ) -> MuseCocoPostprocessResult:
+    if tonality_policy not in ("loose", "strict"):
+        raise MuseCocoPostprocessError("tonality_policy must be 'loose' or 'strict'")
     root = Path(musecoco_dir).resolve()
     try:
         delivery = MuseCocoDelivery.model_validate(_read_json(root / "musecoco_plan.json"))
@@ -144,12 +151,36 @@ def finalize_musecoco_results(
                     tempo_midi,
                     delivery.tempo_bpm,
                 )
-                key = normalize_midi_key(
-                    tempo_midi,
-                    final_midi,
-                    delivery.global_tonality.tonic,
-                    delivery.global_tonality.mode,
-                )
+                if tonality_policy == "strict":
+                    key = normalize_midi_key(
+                        tempo_midi,
+                        final_midi,
+                        delivery.global_tonality.tonic,
+                        delivery.global_tonality.mode,
+                    )
+                    key_audit = key.as_dict()
+                    key_audit.update(
+                        {
+                            "tonality_policy": "strict",
+                            "applied": True,
+                            "input_midi": "tempo-normalized.mid",
+                            "output_midi": "final.mid",
+                        }
+                    )
+                else:
+                    shutil.copy2(tempo_midi, final_midi)
+                    unchanged_hash = _sha256(final_midi)
+                    key_audit = {
+                        "tonality_policy": "loose",
+                        "applied": False,
+                        "source_key": None,
+                        "target_key": delivery.global_tonality.model_dump(mode="json"),
+                        "reason": "tonality_detection_and_rewrite_disabled",
+                        "input_midi": "tempo-normalized.mid",
+                        "output_midi": "final.mid",
+                        "input_sha256": unchanged_hash,
+                        "output_sha256": unchanged_hash,
+                    }
             except (BarNormalizationError, TempoNormalizationError, KeyNormalizationError) as exc:
                 raise MuseCocoPostprocessError(
                     f"normalization failed for {family.theme_family_id}: {exc}"
@@ -165,10 +196,6 @@ def finalize_musecoco_results(
                     "output_midi": "tempo-normalized.mid",
                 }
             )
-            key_audit = key.as_dict()
-            key_audit.update(
-                {"input_midi": "tempo-normalized.mid", "output_midi": "final.mid"}
-            )
             normalization_audit = {
                 "schema_version": "musecoco-theme-normalization-v1",
                 "task_id": task_id,
@@ -177,6 +204,7 @@ def finalize_musecoco_results(
                 "output_motif_bars": delivery.output_motif_bars,
                 "short_input_policy": "error",
                 "long_input_policy": "trim_and_close_active_notes",
+                "tonality_policy": tonality_policy,
                 "bars": bars_audit,
                 "tempo": tempo_audit,
                 "key": key_audit,
@@ -204,6 +232,7 @@ def finalize_musecoco_results(
             "tempo_bpm": delivery.tempo_bpm,
             "time_signature": delivery.time_signature,
             "global_tonality": delivery.global_tonality.model_dump(mode="json"),
+            "tonality_policy": tonality_policy,
             "items": manifest_items,
         }
         (staging / "theme_manifest.json").write_bytes(json_bytes(manifest))

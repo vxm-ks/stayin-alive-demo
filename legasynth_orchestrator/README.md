@@ -9,8 +9,7 @@ D:\conda\python.exe -m legasynth_orchestrator `
   --story "你的故事" `
   --heartbeat-wav "D:\private\heartbeat.wav" `
   --rhythm-plan ".\heartbeat_stage1\examples\even_halfbeat_4_4_103p15.json" `
-  --render-plan ".\legasynth_orchestrator\examples\single_patient_render_plan.json" `
-  --midigpt-python "D:\path\.venv_midigpt\Scripts\python.exe"
+  --render-plan ".\legasynth_orchestrator\examples\single_patient_render_plan.json"
 ```
 
 主控依次执行：
@@ -20,7 +19,19 @@ D:\conda\python.exe -m legasynth_orchestrator `
 3. Stage 2 自动发现 A/B 主题，删除输入原有通道 10，重建心跳轨并运行 MIDI-GPT；
 4. Stage 3 读取带哈希 handoff，使用 FluidSynth 和真实心音素材生成 `final_mix.wav`。
 
-默认从外层工作区的 `tools/` 查找 FluidSynth 与 `GeneralUser-GS.sf2`，也可以通过 `--fluidsynth`、`--general-sf2` 显式覆盖。MIDI-GPT Python 应显式传入或设置环境变量 `LEGASYNTH_MIDIGPT_PYTHON`。
+调性后处理通过 `--tonality-policy strict|loose` 选择。默认 `strict`：检测实际主音与调式，移到计划主音，并在大小调不一致时确定性修正自然音阶的第 3、6、7 级。`loose`：不检测、不改写生成 MIDI 的调性，只保留计划目标作为审计信息。
+
+默认从外层工作区的 `tools/` 查找 FluidSynth 与 `GeneralUser-GS.sf2`，也可以通过 `--fluidsynth`、`--general-sf2` 显式覆盖。
+
+主控启动时会读取仓库根目录中不提交 Git 的 `.env`。当前 Windows 原生 MIDI-GPT 部署可配置为：
+
+```dotenv
+LEGASYNTH_MIDIGPT_PYTHON=D:\LegaSynth\stage2\.conda_midigpt\python.exe
+LEGASYNTH_MIDIGPT_MODEL=yellow
+HF_HOME=D:\LegaSynth\stage2\.cache\huggingface
+```
+
+也可以用 `--midigpt-python` 和 `--midigpt-model` 临时覆盖。Stage 2 由该解释器启动，其内部补全子进程继续使用同一个 `sys.executable`，因此不需要激活 Conda 环境。MIDI-GPT 使用 PyPI Python API，不依赖 HTTP 服务或源码仓库。
 
 ## 不调用模型的流程验证
 

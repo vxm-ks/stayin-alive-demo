@@ -36,10 +36,12 @@ class PipelineConfig:
     runtime_root: Path
     stage1_python: Path = Path(sys.executable)
     midigpt_python: Path = Path(sys.executable)
+    midigpt_model: str = "yellow"
     stage3_python: Path = Path(sys.executable)
     fluidsynth: Path | None = None
     general_sf2: Path | None = None
     wsl_distro: str = "Ubuntu"
+    tonality_policy: str = "strict"
     heartbeat_timeout_s: int = 900
     story_musecoco_timeout_s: int = 7200
     stage2_timeout_s: int = 7200
@@ -280,6 +282,10 @@ def run_pipeline(
     package_id = _safe_package_id(package_id)
     _validate_render_plan(render_plan, package_id)
     if not dry_run:
+        if not config.midigpt_model.strip():
+            raise PipelineError("MIDI-GPT model name cannot be empty")
+        if config.tonality_policy not in {"loose", "strict"}:
+            raise PipelineError("tonality policy must be loose or strict")
         for path, label in (
             (config.stage1_python, "Stage 1 Python"),
             (config.midigpt_python, "MIDI-GPT Python"),
@@ -345,7 +351,8 @@ def run_pipeline(
                     str(config.stage1_python), "-m", "stage1_story_agent", "plan",
                     "--input", str(story_request), "--test-mode", "--output-dir", str(output_base),
                     "--enqueue-musecoco", "--run-musecoco-queue", "--wsl-distro", config.wsl_distro,
-                    "--musecoco-output-bars", "8", "--force",
+                    "--musecoco-output-bars", "8", "--tonality-policy", config.tonality_policy,
+                    "--force",
                 ], cwd=workspace, log_path=logs / "story_and_musecoco.log",
                     timeout_seconds=config.story_musecoco_timeout_s)
             theme_manifest = output_base.with_name(f"{output_base.name}-musecoco") / "generated_themes" / "theme_manifest.json"
@@ -364,6 +371,7 @@ def run_pipeline(
                     "--stage1-output-base", str(output_base),
                     "--heartbeat-package", f"{package_id}={package}",
                     "--stage3-render-plan", str(copied_render),
+                    "--model", config.midigpt_model,
                     "--output", str(stage2_output),
                 ], cwd=workspace, log_path=logs / "stage2_midigpt.log",
                     timeout_seconds=config.stage2_timeout_s)

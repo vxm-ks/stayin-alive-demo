@@ -50,8 +50,11 @@ plan 的 `mix.mode` 支持：
 
 - `manual`：直接使用 `music_gain_db` 和 `heartbeat_gain_db`。
 - `event_window_relative`：先应用 `music_gain_db`，再测量每个心跳附近的局部音乐与心跳 RMS，使心跳约高出 `heartbeat_over_music_db`，增幅不超过 `maximum_heartbeat_boost_db`。
+- `perceptual_event_adaptive`：逐个事件使用 BS.1770 K-weighting 比较心跳与同期音乐；对每个 S1/S2 独立计算并平滑增益，设置心跳增益下限，必要时短暂闪避音乐，最后按目标 LUFS 和真峰值限制统一母带化。推荐用于真实心音。
 
-两种模式最后都会估计 4 倍过采样真峰值；若超过 `true_peak_ceiling_dbtp`，音乐和心跳共同衰减相同数值，因此二者的相对响度不变。`publish_stems` 默认为 `false`。
+三种模式最后都会估计 4 倍过采样真峰值；若超过 `true_peak_ceiling_dbtp`，音乐和心跳共同衰减相同数值，因此二者的相对响度不变。`publish_stems` 默认为 `false`。
+
+推荐的感知自适应参数是：心跳高于同期音乐 `7 dB`、事件增益 `0..18 dB`、相邻同类事件变化不超过 `2 dB`、音乐最大闪避 `4 dB`、力度增益下限 `0.75`、最终 `-16 LUFS / -1 dBTP`。逐事件测量、增益、闪避和预测平衡均写入 CSV；清单记录增益范围、最终 LUFS 和真峰值。
 
 默认只输出：
 

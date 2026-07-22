@@ -1,5 +1,21 @@
 # LegaSynth 完整流程、系统边界与 Agent 同步记录
 
+## 2026-07-22 Stage 3 感知型心跳动态平衡
+
+Stage 3 新增 `perceptual_event_adaptive`：使用 BS.1770 K-weighting 逐事件测量真实心跳与同期音乐，分别计算 S1/S2 增益并限制相邻变化；心跳增益具有下限，避免旧 RMS 模式在低频能量较高时反向衰减心跳。增益不足时只在事件附近对音乐执行有上限的 attack/hold/release 闪避，随后按目标 LUFS 和真峰值共同母带化。MIDI 时间、心音音高和播放速度均不改变，逐事件决策写入 CSV 和渲染清单。
+
+## 2026-07-22 Stage 1 双调性策略
+
+Stage 1 后处理新增 `tonality_policy=loose|strict`，并贯通 `plan`、`enqueue-musecoco` 与一键主控。`loose` 完全跳过调性检测和音高改写，按字节复制速度归一化 MIDI 为 `final.mid`；`strict` 检测实际主音/调式，强制移到计划主音，大小调不一致时按自然大调/自然小调规则调整第 3、6、7 级。两种策略均写入主题归一化审计和最终主题清单。默认是 `strict`。
+
+## 2026-07-22 MuseCoco WSL 入口去 PATH 依赖
+
+Windows→WSL 队列桥接器新增成对配置 `MUSECOCO_QUEUE_PYTHON` 与 `MUSECOCO_QUEUE_SCRIPT`，可以直接执行已部署的 Python wrapper，不再要求 `legasynth-musecoco` 已进入 WSL 登录 shell 的 `PATH`。原 `MUSECOCO_QUEUE_COMMAND` 接口继续兼容；显式解释器/脚本配置优先。该变化仅位于项目桥接层，未修改 WSL wrapper 或任何 MuseCoco 官方文件。
+
+## 2026-07-22 Windows MIDI-GPT 0.3.2 接入
+
+Stage 2 的真实推理环境已固定为 Windows 原生独立解释器，模型通过 PyPI `midigpt 0.3.2` 的 Python API 加载，不使用 WSL、HTTP 服务或源码仓库。主控从仓库根目录 `.env`、进程环境或 CLI 读取 `LEGASYNTH_MIDIGPT_PYTHON` 和 `LEGASYNTH_MIDIGPT_MODEL`，并把模型名明确传给 `stage2/run_pipeline_relative.py`。`HF_HOME` 由子进程继承，用于固定 Hugging Face 缓存根目录。Stage 2 内部仍以 `sys.executable` 启动补全脚本，因此整个 Stage 2 始终运行在同一个 MIDI-GPT 环境中。当前模型为 `yellow`；没有把本机绝对路径、权重 snapshot 或缓存哈希写入可分享代码。
+
 ## 2026-07-21 本地全流程主控
 
 新增 `legasynth_orchestrator/`，在无前端条件下提供本机单任务一键调用。主控复制输入到隔离 job 目录，依次运行心音 Stage 1、Story Agent/WSL MuseCoco、Stage 2/MIDI-GPT 和 Stage 3，记录逐阶段日志、状态、失败信息和 SHA-256。`--dry-run` 及假执行器测试覆盖完整业务编排但不会启动任何真实模型。主控只调度冻结接口，不接管各阶段业务权威。

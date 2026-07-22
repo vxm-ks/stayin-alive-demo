@@ -1,10 +1,8 @@
-"""Detect and force a MuseCoco MIDI file to the planned global key.
+"""Detect and force a MuseCoco MIDI file to the planned global tonality.
 
-Pure transposition can correct a tonic while preserving mode; it cannot turn a
-major composition into a minor composition (or vice versa).  This module
-therefore fails closed on mode mismatch, transposes every non-drum note event,
-leaves General MIDI channel 10 untouched, and publishes a target Key Signature
-meta event with an auditable result.
+The strict transform first transposes the tonic, then converts natural
+major/minor scale degrees 3, 6, and 7 when the detected mode differs. General
+MIDI channel 10 is preserved and every rewrite is audited.
 """
 
 from __future__ import annotations
@@ -87,6 +85,8 @@ class KeyNormalizationResult:
     profile_score: float | None
     profile_margin: float | None
     transpose_semitones: int
+    mode_conversion: str
+    mode_adjusted_note_messages: int
     melodic_note_messages_rewritten: int
     drum_note_messages_preserved: int
     key_signature_events_rewritten: int
@@ -109,6 +109,8 @@ class KeyNormalizationResult:
             "profile_score": self.profile_score,
             "profile_margin": self.profile_margin,
             "transpose_semitones": self.transpose_semitones,
+            "mode_conversion": self.mode_conversion,
+            "mode_adjusted_note_messages": self.mode_adjusted_note_messages,
             "melodic_note_messages_rewritten": self.melodic_note_messages_rewritten,
             "drum_note_messages_preserved": self.drum_note_messages_preserved,
             "key_signature_events_rewritten": self.key_signature_events_rewritten,
@@ -364,18 +366,43 @@ def _target_key_payload(tonic: str, mode: Mode) -> bytes:
     return bytes((sf & 0xFF, 0 if mode == "major" else 1))
 
 
+def _mode_adjustment(pitch: int, source_tonic: str, source_mode: Mode, target_mode: Mode) -> int:
+    """Return the natural major/minor scale-degree correction for one pitch."""
+    if source_mode == target_mode:
+        return 0
+    relative_pc = (pitch - TONIC_TO_PC[source_tonic]) % 12
+    if source_mode == "major" and target_mode == "minor":
+        return -1 if relative_pc in {4, 9, 11} else 0
+    return 1 if relative_pc in {3, 8, 10} else 0
+
+
+def _mapped_pitch(
+    pitch: int,
+    shift: int,
+    source_tonic: str,
+    source_mode: Mode,
+    target_mode: Mode,
+) -> tuple[int, int]:
+    adjustment = _mode_adjustment(pitch, source_tonic, source_mode, target_mode)
+    return pitch + shift + adjustment, adjustment
+
+
 def _transpose_track(
     data: bytes,
     shift: int,
+    source_tonic: str,
+    source_mode: Mode,
+    target_mode: Mode,
     target_payload: bytes,
     track_index: int,
-) -> tuple[bytes, int, int, int]:
+) -> tuple[bytes, int, int, int, int]:
     position = 0
     running_status: int | None = None
     output = bytearray()
     melodic_messages = 0
     drum_messages = 0
     key_signatures = 0
+    mode_adjusted_messages = 0
     context = f"track {track_index}"
 
     while position < len(data):
@@ -407,7 +434,9 @@ def _transpose_track(
                     drum_messages += 1
                 else:
                     pitch = data[data_start]
-                    transposed = pitch + shift
+                    transposed, mode_adjustment = _mapped_pitch(
+                        pitch, shift, source_tonic, source_mode, target_mode
+                    )
                     if not 0 <= transposed <= 127:
                         raise KeyNormalizationError(
                             f"transposition would move MIDI pitch {pitch} outside 0..127 in {context}"
@@ -416,6 +445,8 @@ def _transpose_track(
                     output.append(transposed)
                     output.extend(data[data_start + 1 : position])
                     melodic_messages += 1
+                    if mode_adjustment:
+                        mode_adjusted_messages += 1
                     continue
             output.extend(data[event_start:position])
             continue
@@ -445,10 +476,18 @@ def _transpose_track(
             key_signatures += 1
         else:
             output.extend(data[event_start:position])
-    return bytes(output), melodic_messages, drum_messages, key_signatures
+    return bytes(output), melodic_messages, drum_messages, key_signatures, mode_adjusted_messages
 
 
-def _render_transposed(data: bytes, scan: _MidiScan, shift: int, tonic: str, mode: Mode) -> tuple[bytes, int, int, int]:
+def _render_transposed(
+    data: bytes,
+    scan: _MidiScan,
+    shift: int,
+    source_tonic: str,
+    source_mode: Mode,
+    tonic: str,
+    mode: Mode,
+) -> tuple[bytes, int, int, int, int]:
     header_length = struct.unpack(">I", data[4:8])[0]
     output = bytearray(data[: 8 + header_length])
     target_payload = _target_key_payload(tonic, mode)
@@ -456,10 +495,11 @@ def _render_transposed(data: bytes, scan: _MidiScan, shift: int, tonic: str, mod
     melodic_messages = 0
     drum_messages = 0
     key_signatures = 0
+    mode_adjusted_messages = 0
     for chunk_type, payload in scan.chunks:
         if chunk_type == b"MTrk":
-            rewritten, melodic, drums, signatures = _transpose_track(
-                payload, shift, target_payload, track_index
+            rewritten, melodic, drums, signatures, adjusted = _transpose_track(
+                payload, shift, source_tonic, source_mode, mode, target_payload, track_index
             )
             if track_index == 0:
                 rewritten = b"\x00\xff\x59\x02" + target_payload + rewritten
@@ -468,10 +508,11 @@ def _render_transposed(data: bytes, scan: _MidiScan, shift: int, tonic: str, mod
             melodic_messages += melodic
             drum_messages += drums
             key_signatures += signatures
+            mode_adjusted_messages += adjusted
         output.extend(chunk_type)
         output.extend(struct.pack(">I", len(payload)))
         output.extend(payload)
-    return bytes(output), melodic_messages, drum_messages, key_signatures
+    return bytes(output), melodic_messages, drum_messages, key_signatures, mode_adjusted_messages
 
 
 def default_output_path(input_midi: Path) -> Path:
@@ -505,19 +546,19 @@ def normalize_midi_key(
 
     scan = _scan_midi(source)
     detected = _detect_source_key(scan, source_tonic, source_mode)
-    if detected.mode != target_mode:
-        raise KeyNormalizationError(
-            f"source mode is {detected.mode} but target mode is {target_mode}; pure transposition cannot correct mode"
-        )
     shift = _minimal_shift(detected.tonic, target_tonic)
     before = (min(scan.melodic_pitches), max(scan.melodic_pitches))
-    after = (before[0] + shift, before[1] + shift)
+    mapped_pitches = [
+        _mapped_pitch(pitch, shift, detected.tonic, detected.mode, target_mode)[0]
+        for pitch in scan.melodic_pitches
+    ]
+    after = (min(mapped_pitches), max(mapped_pitches))
     if not 0 <= after[0] <= after[1] <= 127:
         raise KeyNormalizationError(
             f"transposition by {shift:+d} semitones would move melodic range {before} outside MIDI 0..127"
         )
-    normalized, melodic, drums, signatures = _render_transposed(
-        source, scan, shift, target_tonic, target_mode
+    normalized, melodic, drums, signatures, mode_adjusted = _render_transposed(
+        source, scan, shift, detected.tonic, detected.mode, target_tonic, target_mode
     )
     if output_path.exists() and not force:
         raise KeyNormalizationError(
@@ -568,6 +609,10 @@ def normalize_midi_key(
         profile_score=detected.profile_score,
         profile_margin=detected.profile_margin,
         transpose_semitones=shift,
+        mode_conversion=(
+            "none" if detected.mode == target_mode else f"{detected.mode}_to_{target_mode}"
+        ),
+        mode_adjusted_note_messages=mode_adjusted,
         melodic_note_messages_rewritten=melodic,
         drum_note_messages_preserved=drums,
         key_signature_events_rewritten=signatures,

@@ -26,16 +26,22 @@ from uuid import uuid4
 
 import numpy as np
 from scipy.io import wavfile
-from scipy.signal import resample_poly
+from scipy.signal import lfilter, resample_poly
 
 from .heartbeat_conditioning import condition_heartbeat_audio, resolve_conditioning_profile
 from .renderer import Stage3RenderError, inspect_complete_midi, inspect_soundfont
 
 
-VERSION = "2.0.0"
+VERSION = "2.1.0"
 Executor = Callable[[Sequence[str], Path, int], subprocess.CompletedProcess[str]]
 MODES = {"fixed", "round_robin_per_cycle", "round_robin_per_bar"}
-MIX_MODES = {"manual", "event_window_relative"}
+MIX_MODES = {"manual", "event_window_relative", "perceptual_event_adaptive"}
+
+# ITU-R BS.1770 K-weighting biquads at 48 kHz.
+_K_B1 = np.array([1.53512485958697, -2.69169618940638, 1.19839281085285])
+_K_A1 = np.array([1.0, -1.69065929318241, 0.73248077421585])
+_K_B2 = np.array([1.0, -2.0, 1.0])
+_K_A2 = np.array([1.0, -1.99004745483398, 0.99007225036621])
 
 
 @dataclass(frozen=True)
@@ -340,7 +346,10 @@ def load_render_plan(path: str | Path) -> dict[str, Any]:
     mix = _strict_object(plan.get("mix", {}), {
         "mode", "music_gain_db", "heartbeat_gain_db", "heartbeat_over_music_db",
         "maximum_heartbeat_boost_db", "event_window_ms", "true_peak_ceiling_dbtp",
-        "publish_stems",
+        "publish_stems", "target_heartbeat_over_music_db", "minimum_heartbeat_gain_db",
+        "maximum_heartbeat_gain_db", "maximum_event_gain_step_db",
+        "maximum_music_duck_db", "duck_attack_ms", "duck_hold_ms", "duck_release_ms",
+        "velocity_gain_floor", "measurement_weighting", "final_target_lufs",
     }, "mix")
     mode = mix.get("mode", "manual")
     if mode not in MIX_MODES:
@@ -349,15 +358,42 @@ def load_render_plan(path: str | Path) -> dict[str, Any]:
         "music_gain_db": 0.0, "heartbeat_gain_db": 0.0,
         "heartbeat_over_music_db": 4.0, "maximum_heartbeat_boost_db": 12.0,
         "event_window_ms": 250.0, "true_peak_ceiling_dbtp": -1.0,
+        "target_heartbeat_over_music_db": 7.0,
+        "minimum_heartbeat_gain_db": 0.0, "maximum_heartbeat_gain_db": 18.0,
+        "maximum_event_gain_step_db": 2.0, "maximum_music_duck_db": 4.0,
+        "duck_attack_ms": 10.0, "duck_hold_ms": 100.0, "duck_release_ms": 180.0,
+        "velocity_gain_floor": 0.75, "final_target_lufs": -16.0,
     }
     for name, default in defaults.items():
         value = mix.get(name, default)
         if not isinstance(value, (int, float)) or not math.isfinite(value):
             raise Stage3RenderError(f"mix.{name} must be finite")
         mix[name] = float(value)
-    for name in ("music_gain_db", "heartbeat_gain_db", "heartbeat_over_music_db", "maximum_heartbeat_boost_db"):
+    for name in (
+        "music_gain_db", "heartbeat_gain_db", "heartbeat_over_music_db",
+        "maximum_heartbeat_boost_db", "target_heartbeat_over_music_db",
+        "minimum_heartbeat_gain_db", "maximum_heartbeat_gain_db",
+        "maximum_event_gain_step_db", "maximum_music_duck_db",
+    ):
         if not -24 <= mix[name] <= 24:
             raise Stage3RenderError(f"mix.{name} must be between -24 and 24 dB")
+    if mix["minimum_heartbeat_gain_db"] > mix["maximum_heartbeat_gain_db"]:
+        raise Stage3RenderError("minimum heartbeat gain cannot exceed maximum heartbeat gain")
+    if not 0 <= mix["maximum_event_gain_step_db"] <= 12:
+        raise Stage3RenderError("maximum event gain step must be between 0 and 12 dB")
+    if not 0 <= mix["maximum_music_duck_db"] <= 12:
+        raise Stage3RenderError("maximum music duck must be between 0 and 12 dB")
+    for name in ("duck_attack_ms", "duck_hold_ms", "duck_release_ms"):
+        if not 0 <= mix[name] <= 2000:
+            raise Stage3RenderError(f"mix.{name} must be between 0 and 2000 ms")
+    if not 0 <= mix["velocity_gain_floor"] <= 1:
+        raise Stage3RenderError("mix.velocity_gain_floor must be between 0 and 1")
+    if not -30 <= mix["final_target_lufs"] <= -8:
+        raise Stage3RenderError("mix.final_target_lufs must be between -30 and -8")
+    weighting = mix.get("measurement_weighting", "k_weighted")
+    if weighting != "k_weighted":
+        raise Stage3RenderError("mix.measurement_weighting must be k_weighted")
+    mix["measurement_weighting"] = weighting
     if not 50 <= mix["event_window_ms"] <= 2000:
         raise Stage3RenderError("mix.event_window_ms must be between 50 and 2000")
     if not -12 <= mix["true_peak_ceiling_dbtp"] <= -0.1:
@@ -491,6 +527,93 @@ def _db(value: float) -> float:
 
 def _rms(audio: np.ndarray) -> float:
     return float(np.sqrt(np.mean(np.asarray(audio, dtype=np.float64) ** 2))) if audio.size else 0.0
+
+
+def _k_weighted(audio: np.ndarray, sample_rate: int) -> np.ndarray:
+    values = np.asarray(audio, dtype=np.float64)
+    if values.ndim == 1:
+        values = values[:, None]
+    if sample_rate != 48_000:
+        divisor = math.gcd(sample_rate, 48_000)
+        values = resample_poly(values, 48_000 // divisor, sample_rate // divisor, axis=0)
+    weighted = lfilter(_K_B1, _K_A1, values, axis=0)
+    return lfilter(_K_B2, _K_A2, weighted, axis=0)
+
+
+def _perceptual_level_db(audio: np.ndarray, sample_rate: int) -> float:
+    return _db(_rms(_k_weighted(audio, sample_rate)))
+
+
+def _integrated_loudness_lufs(audio: np.ndarray, sample_rate: int) -> float:
+    weighted = _k_weighted(audio, sample_rate)
+    block, step = 19_200, 4_800
+    if len(weighted) < block:
+        weighted = np.pad(weighted, ((0, block - len(weighted)), (0, 0)))
+    energies = np.asarray([
+        float(np.sum(np.mean(np.square(weighted[start:start + block]), axis=0)))
+        for start in range(0, len(weighted) - block + 1, step)
+    ])
+    block_loudness = -0.691 + 10.0 * np.log10(np.maximum(energies, 1e-300))
+    absolute = energies[block_loudness >= -70.0]
+    if not len(absolute):
+        return float("-inf")
+    relative = -0.691 + 10.0 * math.log10(float(np.mean(absolute))) - 10.0
+    gated = energies[block_loudness >= max(-70.0, relative)]
+    return (
+        -0.691 + 10.0 * math.log10(float(np.mean(gated)))
+        if len(gated) else float("-inf")
+    )
+
+
+def _active_bounds(signal: np.ndarray, sample_rate: int, maximum_ms: float) -> tuple[int, int]:
+    """Find a stable high-energy event span without including a long silent tail."""
+    values = np.abs(np.asarray(signal, dtype=np.float64))
+    maximum = min(len(values), max(1, int(round(maximum_ms * sample_rate / 1000.0))))
+    values = values[:maximum]
+    peak = float(np.max(values)) if len(values) else 0.0
+    active = np.flatnonzero(values >= peak * 10 ** (-35.0 / 20.0)) if peak > 0 else np.array([], dtype=int)
+    if len(active):
+        left, right = int(active[0]), int(active[-1]) + 1
+    else:
+        left, right = 0, maximum
+    minimum = min(maximum, max(1, int(round(0.060 * sample_rate))))
+    right = min(maximum, max(right, left + minimum))
+    return left, right
+
+
+def _duck_envelope(
+    length: int,
+    events: Sequence[tuple[int, float]],
+    sample_rate: int,
+    attack_ms: float,
+    hold_ms: float,
+    release_ms: float,
+) -> np.ndarray:
+    envelope = np.ones(length, dtype=np.float64)
+    attack = int(round(attack_ms * sample_rate / 1000.0))
+    hold = int(round(hold_ms * sample_rate / 1000.0))
+    release = int(round(release_ms * sample_rate / 1000.0))
+    for center, duck_db in events:
+        if duck_db <= 0:
+            continue
+        low = 10 ** (-duck_db / 20.0)
+        start, hold_end, end = center - attack, center + hold, center + hold + release
+        left = max(0, start)
+        if left < min(length, center):
+            envelope[left:center] = np.minimum(
+                envelope[left:center], np.linspace(1.0, low, center - left, endpoint=False)
+            )
+        if center < min(length, hold_end):
+            envelope[center:min(length, hold_end)] = np.minimum(
+                envelope[center:min(length, hold_end)], low
+            )
+        right_start, right_end = max(0, hold_end), min(length, end)
+        if right_start < right_end:
+            envelope[right_start:right_end] = np.minimum(
+                envelope[right_start:right_end],
+                np.linspace(low, 1.0, right_end - right_start, endpoint=False),
+            )
+    return envelope
 
 
 def _true_peak(audio: np.ndarray) -> float:
@@ -649,12 +772,19 @@ def render_with_packages(
         length = max(len(music), midi_end + int(math.ceil(max_tail)) + 1)
         if len(music) < length:
             music = np.pad(music, ((0, length - len(music)), (0, 0)))
+        mix = plan["mix"]
+        music_gain_db = mix["music_gain_db"]
+        music_scaled = music * 10 ** (music_gain_db / 20.0)
+        adaptive = mix["mode"] == "perceptual_event_adaptive"
         heartbeat = np.zeros(length, dtype=np.float64)
         states: dict[str, dict[str, int | None]] = {}
         sample_indices: dict[tuple[str, str], int] = {}
         rows: list[dict[str, Any]] = []
         profile = plan["heartbeat_conditioning_profile"]
         conditioned_cache: dict[str, tuple[np.ndarray, int]] = {}
+        previous_event_gain: dict[str, float] = {}
+        duck_events: list[tuple[int, float]] = []
+        event_gains: list[float] = []
         for event_index, event in enumerate(parsed.events):
             bar = event.tick // bar_ticks + 1
             rule_id, rule = _rule_for_bar(plan, bar)
@@ -676,10 +806,61 @@ def render_with_packages(
                 conditioned_cache[clip.sha256] = (np.asarray(conditioned, dtype=np.float64), offset)
             conditioned, offset = conditioned_cache[clip.sha256]
             event_sample = int(round(_seconds_at_tick(event.tick, parsed.ppq, parsed.tempos) * sample_rate))
-            velocity_gain = (event.velocity / 127.0) ** plan["velocity_gamma"]
+            normalized_velocity = (event.velocity / 127.0) ** plan["velocity_gamma"]
+            if adaptive:
+                floor = mix["velocity_gain_floor"]
+                velocity_gain = floor + (1.0 - floor) * normalized_velocity
+            else:
+                velocity_gain = normalized_velocity
             rule_gain = 10 ** (float(rule.get("gain_db", 0.0)) / 20.0)
             start = event_sample - offset
-            head, tail = _place_clip(heartbeat, start, conditioned * velocity_gain * rule_gain)
+            event_signal = conditioned * velocity_gain * rule_gain
+            event_gain_db = 0.0
+            duck_db = 0.0
+            music_level_db = None
+            heartbeat_level_db = None
+            predicted_balance_db = None
+            if adaptive:
+                active_left, active_right = _active_bounds(
+                    event_signal, sample_rate, mix["event_window_ms"]
+                )
+                destination_left = max(0, start + active_left)
+                destination_right = min(length, start + active_right)
+                source_left = active_left + max(0, -(start + active_left))
+                used = max(0, destination_right - destination_left)
+                source_right = min(len(event_signal), source_left + used)
+                used = max(0, source_right - source_left)
+                destination_right = destination_left + used
+                if used:
+                    music_level_db = _perceptual_level_db(
+                        music_scaled[destination_left:destination_right], sample_rate
+                    )
+                    heartbeat_level_db = _perceptual_level_db(
+                        event_signal[source_left:source_right], sample_rate
+                    )
+                    required = (
+                        music_level_db - heartbeat_level_db
+                        + mix["target_heartbeat_over_music_db"]
+                    )
+                    event_gain_db = min(
+                        mix["maximum_heartbeat_gain_db"],
+                        max(mix["minimum_heartbeat_gain_db"], required),
+                    )
+                    prior = previous_event_gain.get(event.event_type)
+                    if prior is not None:
+                        step = mix["maximum_event_gain_step_db"]
+                        event_gain_db = min(prior + step, max(prior - step, event_gain_db))
+                    previous_event_gain[event.event_type] = event_gain_db
+                    duck_db = min(
+                        mix["maximum_music_duck_db"], max(0.0, required - event_gain_db)
+                    )
+                    predicted_balance_db = (
+                        heartbeat_level_db + event_gain_db + duck_db - music_level_db
+                    )
+                event_gains.append(event_gain_db)
+                duck_events.append((event_sample, duck_db))
+                event_signal = event_signal * 10 ** (event_gain_db / 20.0)
+            head, tail = _place_clip(heartbeat, start, event_signal)
             rows.append({
                 "event_index": event_index, "tick": event.tick,
                 "time_s": _seconds_at_tick(event.tick, parsed.ppq, parsed.tempos), "bar": bar,
@@ -690,14 +871,17 @@ def render_with_packages(
                 "source_quality_score": clip.quality_score, "rule_gain_db": float(rule.get("gain_db", 0.0)),
                 "velocity_gain": velocity_gain, "alignment_offset_output_samples": offset,
                 "placement_start_sample": start, "head_truncated": head, "tail_truncated": tail,
+                "perceptual_music_level_db": music_level_db,
+                "perceptual_heartbeat_level_db": heartbeat_level_db,
+                "adaptive_event_gain_db": event_gain_db,
+                "adaptive_music_duck_db": duck_db,
+                "predicted_heartbeat_over_music_db": predicted_balance_db,
             })
         heartbeat_stereo = np.repeat(heartbeat[:, None], music_channels, axis=1)
-        mix = plan["mix"]
-        music_gain_db = mix["music_gain_db"]
-        music_scaled = music * 10 ** (music_gain_db / 20.0)
         if mix["mode"] == "manual":
             heartbeat_gain_db = mix["heartbeat_gain_db"]
-        else:
+            music_balanced = music_scaled
+        elif mix["mode"] == "event_window_relative":
             half = max(1, int(round(mix["event_window_ms"] * sample_rate / 2000.0)))
             music_windows, heartbeat_windows = [], []
             for row in rows:
@@ -709,12 +893,31 @@ def render_with_packages(
             heartbeat_local = float(np.median(heartbeat_windows))
             required = _db(music_local / max(heartbeat_local, 1e-12)) + mix["heartbeat_over_music_db"]
             heartbeat_gain_db = min(required, mix["maximum_heartbeat_boost_db"])
+            music_balanced = music_scaled
+        else:
+            heartbeat_gain_db = float(np.median(event_gains)) if event_gains else 0.0
+            duck = _duck_envelope(
+                length, duck_events, sample_rate, mix["duck_attack_ms"],
+                mix["duck_hold_ms"], mix["duck_release_ms"],
+            )
+            music_balanced = music_scaled * duck[:, None]
         heartbeat_scaled = heartbeat_stereo * 10 ** (heartbeat_gain_db / 20.0)
-        combined = music_scaled + heartbeat_scaled
+        # Adaptive event gains are already baked into the heartbeat stem.
+        if adaptive:
+            heartbeat_scaled = heartbeat_stereo
+        combined = music_balanced + heartbeat_scaled
         pre_peak = _true_peak(combined)
         ceiling = 10 ** (mix["true_peak_ceiling_dbtp"] / 20.0)
-        protection_gain = min(1.0, ceiling / max(pre_peak, 1e-12))
-        music_final = music_scaled * protection_gain
+        loudness_before_mastering = _integrated_loudness_lufs(combined, sample_rate)
+        if adaptive and math.isfinite(loudness_before_mastering):
+            requested_master_db = mix["final_target_lufs"] - loudness_before_mastering
+            peak_limited_db = _db(ceiling / max(pre_peak, 1e-12))
+            master_gain_db = min(requested_master_db, peak_limited_db)
+            protection_gain = 10 ** (master_gain_db / 20.0)
+        else:
+            protection_gain = min(1.0, ceiling / max(pre_peak, 1e-12))
+            master_gain_db = _db(protection_gain)
+        music_final = music_balanced * protection_gain
         heartbeat_final = heartbeat_scaled * protection_gain
         final = music_final + heartbeat_final
         _write_wav(final_wav, sample_rate, final)
@@ -768,12 +971,24 @@ def render_with_packages(
             "mix": {
                 "mode": mix["mode"], "requested_music_gain_db": music_gain_db,
                 "effective_heartbeat_gain_db_before_peak_protection": heartbeat_gain_db,
-                "common_peak_protection_gain_db": _db(protection_gain),
-                "final_music_gain_db": music_gain_db + _db(protection_gain),
-                "final_heartbeat_gain_db": heartbeat_gain_db + _db(protection_gain),
+                "adaptive_event_gain_db": ({
+                    "minimum": min(event_gains), "median": float(np.median(event_gains)),
+                    "maximum": max(event_gains),
+                } if event_gains else None),
+                "adaptive_music_duck_db": ({
+                    "minimum": min((value for _sample, value in duck_events), default=0.0),
+                    "median": float(np.median([value for _sample, value in duck_events])),
+                    "maximum": max((value for _sample, value in duck_events), default=0.0),
+                } if duck_events else None),
+                "common_peak_protection_gain_db": master_gain_db,
+                "final_music_gain_db": music_gain_db + master_gain_db,
+                "final_heartbeat_gain_db": heartbeat_gain_db + master_gain_db,
                 "pre_protection_true_peak_dbtp": _db(pre_peak),
                 "post_protection_true_peak_dbtp": _db(_true_peak(final)),
                 "ceiling_dbtp": mix["true_peak_ceiling_dbtp"],
+                "integrated_lufs_before_mastering": loudness_before_mastering,
+                "integrated_lufs_final": _integrated_loudness_lufs(final, sample_rate),
+                "target_lufs": mix["final_target_lufs"] if adaptive else None,
                 "music_rms_dbfs": _db(_rms(music_final)),
                 "heartbeat_rms_dbfs": _db(_rms(heartbeat_final)),
             },

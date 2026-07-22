@@ -76,15 +76,23 @@ class KeyNormalizerTests(unittest.TestCase):
         self.assertEqual(detected.method, "pitch_profile")
         self.assertGreater(detected.profile_score or 0, 0.99)
 
-    def test_mode_mismatch_fails_closed_without_writing(self):
+    def test_major_to_minor_adjusts_natural_scale_degrees(self):
         with tempfile.TemporaryDirectory() as root:
             source = Path(root) / "source.mid"
             output = Path(root) / "output.mid"
-            source.write_bytes(_midi_in_key(0, 0))
+            source.write_bytes(_midi_in_key(0, 0, pitches=(60, 64, 69, 71)))
 
-            with self.assertRaisesRegex(KeyNormalizationError, "cannot correct mode"):
-                normalize_midi_key(source, output, "D", "minor")
-            self.assertFalse(output.exists())
+            result = normalize_midi_key(source, output, "C", "minor")
+            normalized = output.read_bytes()
+
+            self.assertEqual(result.mode_conversion, "major_to_minor")
+            self.assertEqual(result.transpose_semitones, 0)
+            self.assertEqual(result.mode_adjusted_note_messages, 6)
+            for pitch in (60, 63, 68, 70):
+                self.assertIn(bytes((0x90, pitch, 100)), normalized)
+            self.assertNotIn(bytes((0x90, 64, 100)), normalized)
+            self.assertNotIn(bytes((0x90, 69, 100)), normalized)
+            self.assertNotIn(bytes((0x90, 71, 100)), normalized)
 
     def test_out_of_range_transposition_is_rejected(self):
         with tempfile.TemporaryDirectory() as root:

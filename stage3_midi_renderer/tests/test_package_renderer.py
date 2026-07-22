@@ -147,6 +147,39 @@ class PackageRendererTests(unittest.TestCase):
         with self.assertRaisesRegex(Stage3RenderError, "unknown render plan"):
             load_render_plan(self.plan)
 
+    def test_perceptual_adaptive_mode_never_attenuates_heartbeat(self):
+        raw = json.loads(self.plan.read_text(encoding="utf-8"))
+        raw["mix"].update({
+            "mode": "perceptual_event_adaptive",
+            "target_heartbeat_over_music_db": 7.0,
+            "minimum_heartbeat_gain_db": 0.0,
+            "maximum_heartbeat_gain_db": 18.0,
+            "maximum_event_gain_step_db": 2.0,
+            "maximum_music_duck_db": 4.0,
+            "duck_attack_ms": 10.0,
+            "duck_hold_ms": 100.0,
+            "duck_release_ms": 180.0,
+            "velocity_gain_floor": 0.75,
+            "measurement_weighting": "k_weighted",
+            "final_target_lufs": -16.0,
+            "publish_stems": True,
+        })
+        self.plan.write_text(json.dumps(raw), encoding="utf-8")
+        result = render_with_packages(
+            self.midi, self.sf2, self.plan, {"a": self.a, "b": self.b},
+            self.root / "adaptive", fluidsynth="fake", executor=self._executor,
+        )
+        manifest = json.loads(result.manifest_json.read_text(encoding="utf-8"))
+        gains = manifest["mix"]["adaptive_event_gain_db"]
+        self.assertGreaterEqual(gains["minimum"], 0.0)
+        self.assertLessEqual(gains["maximum"], 18.0)
+        self.assertLessEqual(manifest["mix"]["post_protection_true_peak_dbtp"], -0.9)
+        with result.assignments_csv.open(encoding="utf-8", newline="") as handle:
+            import csv
+            rows = list(csv.DictReader(handle))
+        self.assertTrue(all(float(row["velocity_gain"]) >= 0.75 for row in rows))
+        self.assertTrue(all(float(row["adaptive_event_gain_db"]) >= 0.0 for row in rows))
+
     def test_cli_accepts_repeatable_package_bindings(self):
         args = build_parser().parse_args([
             "render-packages", "--input-midi", "complete.mid", "--general-sf2", "general.sf2",

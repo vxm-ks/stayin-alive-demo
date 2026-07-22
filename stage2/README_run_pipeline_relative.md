@@ -86,6 +86,23 @@ stage2/
 
 ## 2. 激活虚拟环境
 
+当前已验证的 Windows 原生部署为：
+
+```text
+Python: D:\LegaSynth\stage2\.conda_midigpt\python.exe
+Package: midigpt 0.3.2
+Model: yellow
+HF_HOME: D:\LegaSynth\stage2\.cache\huggingface
+```
+
+推荐不激活 Conda，直接使用专用解释器：
+
+```powershell
+D:\LegaSynth\stage2\.conda_midigpt\python.exe .\stage2\run_pipeline_relative.py ...
+```
+
+以下激活方式仅作为等价的手工运行方法。
+
 在项目目录中运行：
 
 ```powershell

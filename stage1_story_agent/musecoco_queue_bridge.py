@@ -100,6 +100,8 @@ def enqueue_musecoco_tasks(
     force_collect: bool = False,
     timeout_seconds: int = 86_400,
     queue_command: str | None = None,
+    queue_python: str | None = None,
+    queue_script: str | None = None,
     executor: Executor | None = None,
 ) -> MuseCocoQueueBridgeResult:
     """Atomically enqueue Stage 1 task packages and optionally run the WSL queue."""
@@ -113,12 +115,21 @@ def enqueue_musecoco_tasks(
     packages = _task_package_root(musecoco_dir)
     invoke = executor or _default_executor
     prefix = ["wsl.exe", "-d", wsl_distro, "--"]
-    queue_executable = queue_command or os.environ.get(
-        "MUSECOCO_QUEUE_COMMAND", "legasynth-musecoco"
-    )
-    if not queue_executable.strip() or any(character.isspace() for character in queue_executable):
+    configured_python = queue_python or os.environ.get("MUSECOCO_QUEUE_PYTHON")
+    configured_script = queue_script or os.environ.get("MUSECOCO_QUEUE_SCRIPT")
+    if bool(configured_python) != bool(configured_script):
         raise MuseCocoQueueBridgeError(
-            "MuseCoco queue command must be one executable name or absolute WSL path"
+            "MUSECOCO_QUEUE_PYTHON and MUSECOCO_QUEUE_SCRIPT must be configured together"
+        )
+    if configured_python and configured_script:
+        queue_prefix = [configured_python, configured_script]
+    else:
+        queue_prefix = [queue_command or os.environ.get(
+            "MUSECOCO_QUEUE_COMMAND", "legasynth-musecoco"
+        )]
+    if any(not item.strip() or any(character.isspace() for character in item) for item in queue_prefix):
+        raise MuseCocoQueueBridgeError(
+            "MuseCoco queue executable paths must be non-empty and contain no whitespace"
         )
     converted = _run_checked(
         [*prefix, "wslpath", "-a", str(packages)],
@@ -129,7 +140,7 @@ def enqueue_musecoco_tasks(
     if not wsl_path.startswith("/"):
         raise MuseCocoQueueBridgeError(f"wslpath returned an invalid path: {wsl_path!r}")
     enqueued = _run_checked(
-        [*prefix, queue_executable, "enqueue", "--source", wsl_path],
+        [*prefix, *queue_prefix, "enqueue", "--source", wsl_path],
         executor=invoke,
         timeout_seconds=300,
     )
@@ -146,7 +157,7 @@ def enqueue_musecoco_tasks(
     if run_queue:
         command = [
             *prefix,
-            queue_executable,
+            *queue_prefix,
             "run",
             "--max-attempts",
             str(max_attempts),
@@ -177,7 +188,7 @@ def enqueue_musecoco_tasks(
                 )
             collect_command = [
                 *prefix,
-                queue_executable,
+                *queue_prefix,
                 "collect",
                 "--source",
                 wsl_path,

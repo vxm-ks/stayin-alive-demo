@@ -25,10 +25,12 @@ class NoProcessRunner:
 class SyntheticProcessRunner:
     def __init__(self):
         self.stages: list[str] = []
+        self.commands: dict[str, list[str]] = {}
 
     def run(self, stage, command, *, cwd, log_path, timeout_seconds):
         del cwd, timeout_seconds
         self.stages.append(stage)
+        self.commands[stage] = list(command)
         log_path.parent.mkdir(parents=True, exist_ok=True)
         log_path.write_text(repr(command), encoding="utf-8")
         if stage == "heartbeat_stage1":
@@ -130,6 +132,12 @@ class OrchestratorTests(unittest.TestCase):
         self.assertEqual(runner.stages, [
             "heartbeat_stage1", "story_and_musecoco", "stage2_midigpt", "stage3_render",
         ])
+        stage2_command = runner.commands["stage2_midigpt"]
+        self.assertEqual(stage2_command[stage2_command.index("--model") + 1], "yellow")
+        stage1_command = runner.commands["story_and_musecoco"]
+        self.assertEqual(
+            stage1_command[stage1_command.index("--tonality-policy") + 1], "strict"
+        )
         self.assert_complete_job(job, dry_run=False)
 
 

@@ -69,6 +69,10 @@ def build_parser() -> argparse.ArgumentParser:
     )
     plan.add_argument("--wsl-distro", default="Ubuntu")
     plan.add_argument(
+        "--tonality-policy", choices=["loose", "strict"], default="strict",
+        help="loose preserves generated tonality; strict forces planned tonic and mode",
+    )
+    plan.add_argument(
         "--musecoco-output-bars",
         type=int,
         choices=[8],
@@ -89,6 +93,10 @@ def build_parser() -> argparse.ArgumentParser:
     enqueue.add_argument("--max-tasks", type=int)
     enqueue.add_argument("--max-attempts", type=int, default=3)
     enqueue.add_argument("--wsl-distro", default="Ubuntu")
+    enqueue.add_argument(
+        "--tonality-policy", choices=["loose", "strict"], default="strict",
+        help="loose preserves generated tonality; strict forces planned tonic and mode",
+    )
     enqueue.add_argument(
         "--force-results",
         action="store_true",
@@ -308,6 +316,7 @@ def _run_musecoco_enqueue(args: argparse.Namespace) -> int:
             postprocess = finalize_musecoco_results(
                 args.musecoco_dir,
                 force=args.force_results,
+                tonality_policy=args.tonality_policy,
             )
             payload["postprocess"] = postprocess.as_dict()
         print(json.dumps(payload, ensure_ascii=False, indent=2))
@@ -425,6 +434,7 @@ def main(argv: list[str] | None = None) -> int:
                 postprocess = finalize_musecoco_results(
                     destinations["musecoco"],
                     force=args.force,
+                    tonality_policy=args.tonality_policy,
                 )
                 result["musecoco_postprocess"] = postprocess.as_dict()
         print(json.dumps(result, ensure_ascii=False, indent=2))

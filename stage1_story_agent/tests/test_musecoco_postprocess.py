@@ -102,6 +102,29 @@ class MuseCocoPostprocessTests(unittest.TestCase):
             self.assertEqual(manifest["generation_target_bars"], 12)
             self.assertEqual(manifest["output_motif_bars"], 8)
 
+    def test_loose_tonality_policy_preserves_generated_midi(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            musecoco = _prepare(Path(temporary), end_tick=12 * 4 * 96)
+            plan_path = musecoco / "musecoco_plan.json"
+            plan = json.loads(plan_path.read_text(encoding="utf-8"))
+            plan["global_tonality"] = {
+                "tonic": "C", "mode": "minor", "rationale": "test mismatch"
+            }
+            plan["theme_families"][0]["musecoco_attribute_targets"]["K1"] = "minor"
+            plan_path.write_bytes(json_bytes(plan))
+
+            result = finalize_musecoco_results(musecoco, tonality_policy="loose")
+            theme = result.generated_themes_dir / "theme-A"
+            audit = json.loads((theme / "normalization_audit.json").read_text(encoding="utf-8"))
+            self.assertEqual(audit["tonality_policy"], "loose")
+            self.assertFalse(audit["key"]["applied"])
+            self.assertEqual(
+                (theme / "tempo-normalized.mid").read_bytes(),
+                (theme / "final.mid").read_bytes(),
+            )
+            manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+            self.assertEqual(manifest["tonality_policy"], "loose")
+
     def test_short_result_errors_without_publishing_partial_output(self):
         with tempfile.TemporaryDirectory() as temporary:
             musecoco = _prepare(Path(temporary), end_tick=7 * 4 * 96)

@@ -78,6 +78,39 @@ class MuseCocoQueueBridgeTests(unittest.TestCase):
         with self.assertRaisesRegex(MuseCocoQueueBridgeError, "files mismatch"):
             enqueue_musecoco_tasks(self.packages, executor=lambda *_args, **_kwargs: None)
 
+    def test_bridge_supports_explicit_wsl_python_and_script(self):
+        commands = []
+
+        def fake_executor(command, **kwargs):
+            del kwargs
+            commands.append(list(command))
+            if "wslpath" in command:
+                return subprocess.CompletedProcess(command, 0, "/mnt/d/task_packages\n", "")
+            return subprocess.CompletedProcess(command, 0, json.dumps({"enqueued": []}), "")
+
+        enqueue_musecoco_tasks(
+            self.packages,
+            queue_python="/home/blue/miniforge3/envs/MuseCoco/bin/python",
+            queue_script="/home/blue/musecoco_tools/musecoco_task_queue.py",
+            executor=fake_executor,
+        )
+        self.assertEqual(
+            commands[1][4:7],
+            [
+                "/home/blue/miniforge3/envs/MuseCoco/bin/python",
+                "/home/blue/musecoco_tools/musecoco_task_queue.py",
+                "enqueue",
+            ],
+        )
+
+    def test_bridge_rejects_half_configured_python_wrapper(self):
+        with self.assertRaisesRegex(MuseCocoQueueBridgeError, "configured together"):
+            enqueue_musecoco_tasks(
+                self.packages,
+                queue_python="/home/blue/python",
+                executor=lambda *_args, **_kwargs: None,
+            )
+
 
 if __name__ == "__main__":
     unittest.main()
