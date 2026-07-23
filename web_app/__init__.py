@@ -1,0 +1,1 @@
+"""LegaSynth bilingual browser experience."""
