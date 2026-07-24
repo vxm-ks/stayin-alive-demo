@@ -15,7 +15,7 @@ const copy = {
   zh: {
     navCreate: '创作', navWork: '作品', eyebrow: '让生命留下旋律',
     titleA: '每一次心跳，', titleB: '都有自己的故事。',
-    intro: '上传一段心音，写下一个故事。LegaSynth 会把真实的生命节律，编织成只属于你的音乐。',
+    intro: '上传一段心音，写下一个故事。stayin’ alive 会把真实的生命节律，编织成只属于你的音乐。',
     step1: '01 · 心跳样本', step2: '02 · 你的故事', wavOnly: '支持 WAV · 建议 10–60 秒',
     upload: '拖入心音文件', browse: '或点击选择本地 WAV', replace: '点击更换文件',
     storyLabel: '写下你想让音乐讲述的故事', placeholder: '例如：那年夏天，我们沿着海岸一直走，晚风带着盐的味道……',
@@ -31,7 +31,7 @@ const copy = {
   en: {
     navCreate: 'Create', navWork: 'Your piece', eyebrow: 'A melody made from life',
     titleA: 'Every heartbeat', titleB: 'has a story to tell.',
-    intro: 'Upload a heartbeat and write a story. LegaSynth weaves a real human rhythm into music that belongs only to you.',
+    intro: 'Upload a heartbeat and write a story. stayin’ alive weaves a real human rhythm into music that belongs only to you.',
     step1: '01 · Heartbeat', step2: '02 · Your story', wavOnly: 'WAV · 10–60 seconds recommended',
     upload: 'Drop your heartbeat here', browse: 'or choose a WAV from your device', replace: 'Click to choose another file',
     storyLabel: 'What story should this music tell?', placeholder: 'For example: That summer, we walked along the coast until dusk, with salt carried on the wind…',
@@ -173,7 +173,7 @@ function Waveform({ src, lang }: { src: string; lang: Lang }) {
       <button className="playButton" onClick={toggle} aria-label={playing ? t.pause : t.play}>
         {playing ? <span className="pauseIcon"/> : <span className="playIcon"/>}
       </button>
-      <div className="trackMeta"><b>{t.resultTitle}</b><span>LegaSynth · 2026 · {detected} {lang === 'zh' ? '次心跳' : 'heartbeats'}</span></div>
+      <div className="trackMeta"><b>{t.resultTitle}</b><span>stayin’ alive · 2026 · {detected} {lang === 'zh' ? '次心跳' : 'heartbeats'}</span></div>
       <span className="time">{format(current)} / {format(duration || 0)}</span>
     </div>
     <div className="waveWrap" onClick={e => { const rect = e.currentTarget.getBoundingClientRect(); if (audioRef.current && duration) audioRef.current.currentTime = ((e.clientX - rect.left) / rect.width) * duration }}>
@@ -195,7 +195,7 @@ function WaveDemo({ lang, setLang }: { lang: Lang; setLang: (lang: Lang) => void
   return <main className="app demoApp">
     <div className="ambient ambientOne"/><div className="ambient ambientTwo"/><div className="grain"/>
     <header>
-      <a className="brand" href="/"><LogoMark/><span>LegaSynth</span></a>
+      <a className="brand" href="/"><LogoMark/><span>stayin’ alive</span></a>
       <span className="demoBadge">WAVEFORM LAB · 波形检验台</span>
       <div className="language"><button className={lang === 'zh' ? 'selected' : ''} onClick={() => setLang('zh')}>中</button><i/><button className={lang === 'en' ? 'selected' : ''} onClick={() => setLang('en')}>EN</button></div>
     </header>
@@ -269,7 +269,7 @@ export default function App() {
   return <main className={`app view-${view}`}>
     <div className="ambient ambientOne"/><div className="ambient ambientTwo"/><div className="grain"/>
     <header>
-      <button className="brand" onClick={reset}><LogoMark/><span>LegaSynth</span></button>
+      <button className="brand" onClick={reset}><LogoMark/><span>stayin’ alive</span></button>
       <nav><button className={view === 'create' ? 'active' : ''} onClick={reset}>{t.navCreate}</button><button className={view === 'result' ? 'active' : ''}>{t.navWork}</button></nav>
       <div className="language"><button className={lang === 'zh' ? 'selected' : ''} onClick={() => setLang('zh')}>中</button><i/><button className={lang === 'en' ? 'selected' : ''} onClick={() => setLang('en')}>EN</button></div>
     </header>
