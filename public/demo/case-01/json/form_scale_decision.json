@@ -1,0 +1,55 @@
+{
+  "content_attempts": 1,
+  "form_blueprint": [
+    {
+      "base_symbol": "A",
+      "narrative_function": "平静的故乡生活",
+      "relation": "introduce",
+      "section_id": "S1",
+      "source_section_id": null,
+      "variant_index": 0
+    },
+    {
+      "base_symbol": "B",
+      "narrative_function": "被迫远离与悲伤",
+      "relation": "introduce",
+      "section_id": "S2",
+      "source_section_id": null,
+      "variant_index": 0
+    },
+    {
+      "base_symbol": "A",
+      "narrative_function": "旅途中回忆故乡",
+      "relation": "variation",
+      "section_id": "S3",
+      "source_section_id": "S1",
+      "variant_index": 1
+    },
+    {
+      "base_symbol": "A",
+      "narrative_function": "回忆带来平静",
+      "relation": "development",
+      "section_id": "S4",
+      "source_section_id": "S3",
+      "variant_index": 2
+    },
+    {
+      "base_symbol": "C",
+      "narrative_function": "接受现实并踏上新路",
+      "relation": "introduce",
+      "section_id": "S5",
+      "source_section_id": null,
+      "variant_index": 0
+    }
+  ],
+  "model": "deepseek-v4-pro",
+  "network_attempts": 1,
+  "provider": "deepseek",
+  "rationale": "故事经历了五个不同的戏剧阶段：平静的故乡生活、被迫离别的悲伤、旅途中对故乡的回忆、记忆带来逐渐平静、最终接受现实并开始新旅程，每个阶段都代表情感弧线中有意义的转折。",
+  "request_id": "707ca7da-14a8-478f-9178-f1ac1e8ae02c",
+  "schema_version": "stage1-form-scale-v1",
+  "section_bars": 16,
+  "section_count": 5,
+  "strategy": "story_llm",
+  "total_bars": 80
+}

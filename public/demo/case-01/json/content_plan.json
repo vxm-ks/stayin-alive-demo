@@ -1,0 +1,487 @@
+{
+  "form_plan": {
+    "form_string": "A-B-A'-A''-C",
+    "sections": [
+      {
+        "bar_count": 16,
+        "bar_end": 16,
+        "bar_start": 1,
+        "form_label": "A",
+        "material_source": "musecoco_seed",
+        "musical_intent": "Introduce the peaceful hometown theme with a gentle, flowing melody.",
+        "narrative_segment_ids": [
+          "N1"
+        ],
+        "relation": "introduce",
+        "section_id": "S1",
+        "source_section_id": null,
+        "theme_family_id": "theme-A"
+      },
+      {
+        "bar_count": 16,
+        "bar_end": 32,
+        "bar_start": 17,
+        "form_label": "B",
+        "material_source": "musecoco_seed",
+        "musical_intent": "Contrast with a mournful and tense theme reflecting the pain of departure.",
+        "narrative_segment_ids": [
+          "N2"
+        ],
+        "relation": "introduce",
+        "section_id": "S2",
+        "source_section_id": null,
+        "theme_family_id": "theme-B"
+      },
+      {
+        "bar_count": 16,
+        "bar_end": 48,
+        "bar_start": 33,
+        "form_label": "A'",
+        "material_source": "midigpt_variation",
+        "musical_intent": "A nostalgic variation of the A theme, incorporating ornamental twists to evoke memories.",
+        "narrative_segment_ids": [
+          "N3"
+        ],
+        "relation": "variation",
+        "section_id": "S3",
+        "source_section_id": "S1",
+        "theme_family_id": "theme-A"
+      },
+      {
+        "bar_count": 16,
+        "bar_end": 64,
+        "bar_start": 49,
+        "form_label": "A''",
+        "material_source": "midigpt_development",
+        "musical_intent": "Further develop the A theme towards calmness, smoothing out tensions.",
+        "narrative_segment_ids": [
+          "N4"
+        ],
+        "relation": "development",
+        "section_id": "S4",
+        "source_section_id": "S3",
+        "theme_family_id": "theme-A"
+      },
+      {
+        "bar_count": 16,
+        "bar_end": 80,
+        "bar_start": 65,
+        "form_label": "C",
+        "material_source": "musecoco_seed",
+        "musical_intent": "Introduce a new, hopeful melody signifying acceptance and a new beginning.",
+        "narrative_segment_ids": [
+          "N5"
+        ],
+        "relation": "introduce",
+        "section_id": "S5",
+        "source_section_id": null,
+        "theme_family_id": "theme-C"
+      }
+    ]
+  },
+  "global": {
+    "global_tonality": {
+      "mode": "minor",
+      "rationale": "Minor mode expresses the bittersweet journey from calm through sorrow to acceptance.",
+      "tonic": "C"
+    },
+    "tempo_bpm": 96.0,
+    "time_signature": "4/4",
+    "total_bars": 80
+  },
+  "musecoco_requests": [],
+  "provenance": {
+    "content_attempts": 2,
+    "generated_at": "2026-07-25T13:10:47.038779Z",
+    "model": "deepseek-v4-pro",
+    "network_attempts": 3,
+    "prompt_version": "stage1-form-v9",
+    "provider": "deepseek",
+    "request_id": "51d972d4-8f46-45ab-9442-c92f0301e06b",
+    "request_sha256": "801b138ead083f1a5e300f735d8b6757e491fb510581677674eb81228e290a96",
+    "run_id": "d3d3075e-15e0-4973-b8bb-e9540d75b54a",
+    "story_sha256": "a3f91ff4d92de0eb0689ce00e246b38be9a48b093a1b63d255445c821db56328"
+  },
+  "schema_version": "0.2-draft",
+  "stage2_handoff": {
+    "bar_numbering": "one_based_closed",
+    "drum_track_scope": "instructions_only",
+    "heart_sound_render_stage": "after_midigpt",
+    "schema_version": "0.2-draft",
+    "sections": [
+      {
+        "bar_end": 16,
+        "bar_start": 1,
+        "drum_pattern": {
+          "closed_hihat_beats": [],
+          "kick_beats": [
+            1.0
+          ],
+          "pattern": "single_pulse_per_bar",
+          "snare_beats": [],
+          "time_signature": "4/4"
+        },
+        "editable_bar_ranges": [
+          {
+            "bar_end": 16,
+            "bar_start": 9
+          }
+        ],
+        "extension_bars": 8,
+        "extension_method": "midigpt_extend",
+        "form_label": "A",
+        "input_motif_bars": 8,
+        "material_source": "musecoco_seed",
+        "midigpt_access": "extension_only",
+        "protected_bar_ranges": [
+          {
+            "bar_end": 8,
+            "bar_start": 1
+          }
+        ],
+        "relation": "introduce",
+        "section_id": "S1",
+        "source_section_id": null,
+        "source_tension": 0.2,
+        "target_section_bars": 16,
+        "tempo_bpm": 80.0,
+        "tension_level": "low",
+        "theme_family_id": "theme-A"
+      },
+      {
+        "bar_end": 32,
+        "bar_start": 17,
+        "drum_pattern": {
+          "closed_hihat_beats": [],
+          "kick_beats": [
+            1.0,
+            2.0,
+            3.0,
+            4.0
+          ],
+          "pattern": "pulse_each_beat",
+          "snare_beats": [],
+          "time_signature": "4/4"
+        },
+        "editable_bar_ranges": [
+          {
+            "bar_end": 32,
+            "bar_start": 25
+          }
+        ],
+        "extension_bars": 8,
+        "extension_method": "midigpt_extend",
+        "form_label": "B",
+        "input_motif_bars": 8,
+        "material_source": "musecoco_seed",
+        "midigpt_access": "extension_only",
+        "protected_bar_ranges": [
+          {
+            "bar_end": 24,
+            "bar_start": 17
+          }
+        ],
+        "relation": "introduce",
+        "section_id": "S2",
+        "source_section_id": null,
+        "source_tension": 0.7,
+        "target_section_bars": 16,
+        "tempo_bpm": 100.0,
+        "tension_level": "high",
+        "theme_family_id": "theme-B"
+      },
+      {
+        "bar_end": 48,
+        "bar_start": 33,
+        "drum_pattern": {
+          "closed_hihat_beats": [],
+          "kick_beats": [
+            1.0
+          ],
+          "pattern": "single_pulse_per_bar",
+          "snare_beats": [],
+          "time_signature": "4/4"
+        },
+        "editable_bar_ranges": [
+          {
+            "bar_end": 48,
+            "bar_start": 33
+          }
+        ],
+        "extension_bars": 8,
+        "extension_method": "midigpt_transform",
+        "form_label": "A'",
+        "input_motif_bars": 8,
+        "material_source": "midigpt_variation",
+        "midigpt_access": "modifiable",
+        "protected_bar_ranges": [],
+        "relation": "variation",
+        "section_id": "S3",
+        "source_section_id": "S1",
+        "source_tension": 0.5,
+        "target_section_bars": 16,
+        "tempo_bpm": 90.0,
+        "tension_level": "low",
+        "theme_family_id": "theme-A"
+      },
+      {
+        "bar_end": 64,
+        "bar_start": 49,
+        "drum_pattern": {
+          "closed_hihat_beats": [],
+          "kick_beats": [
+            1.0
+          ],
+          "pattern": "single_pulse_per_bar",
+          "snare_beats": [],
+          "time_signature": "4/4"
+        },
+        "editable_bar_ranges": [
+          {
+            "bar_end": 64,
+            "bar_start": 49
+          }
+        ],
+        "extension_bars": 8,
+        "extension_method": "midigpt_transform",
+        "form_label": "A''",
+        "input_motif_bars": 8,
+        "material_source": "midigpt_development",
+        "midigpt_access": "modifiable",
+        "protected_bar_ranges": [],
+        "relation": "development",
+        "section_id": "S4",
+        "source_section_id": "S3",
+        "source_tension": 0.3,
+        "target_section_bars": 16,
+        "tempo_bpm": 80.0,
+        "tension_level": "low",
+        "theme_family_id": "theme-A"
+      },
+      {
+        "bar_end": 80,
+        "bar_start": 65,
+        "drum_pattern": {
+          "closed_hihat_beats": [],
+          "kick_beats": [
+            1.0
+          ],
+          "pattern": "single_pulse_per_bar",
+          "snare_beats": [],
+          "time_signature": "4/4"
+        },
+        "editable_bar_ranges": [
+          {
+            "bar_end": 80,
+            "bar_start": 73
+          }
+        ],
+        "extension_bars": 8,
+        "extension_method": "midigpt_extend",
+        "form_label": "C",
+        "input_motif_bars": 8,
+        "material_source": "musecoco_seed",
+        "midigpt_access": "extension_only",
+        "protected_bar_ranges": [
+          {
+            "bar_end": 72,
+            "bar_start": 65
+          }
+        ],
+        "relation": "introduce",
+        "section_id": "S5",
+        "source_section_id": null,
+        "source_tension": 0.4,
+        "target_section_bars": 16,
+        "tempo_bpm": 96.0,
+        "tension_level": "low",
+        "theme_family_id": "theme-C"
+      }
+    ]
+  },
+  "story_analysis": {
+    "emotional_arc": [
+      {
+        "emotion": "平静",
+        "position": 0.0,
+        "tension": 0.2,
+        "valence": 0.4
+      },
+      {
+        "emotion": "悲伤",
+        "position": 0.25,
+        "tension": 0.7,
+        "valence": -0.7
+      },
+      {
+        "emotion": "怀念",
+        "position": 0.5,
+        "tension": 0.5,
+        "valence": -0.4
+      },
+      {
+        "emotion": "逐渐平静",
+        "position": 0.75,
+        "tension": 0.3,
+        "valence": -0.1
+      },
+      {
+        "emotion": "接受",
+        "position": 1.0,
+        "tension": 0.4,
+        "valence": 0.5
+      }
+    ],
+    "narrative_segments": [
+      {
+        "emotion": "平静",
+        "narrative_role": "opening",
+        "segment_id": "N1",
+        "summary": "平静的故乡生活",
+        "tension": 0.2,
+        "valence": 0.4
+      },
+      {
+        "emotion": "悲伤",
+        "narrative_role": "build",
+        "segment_id": "N2",
+        "summary": "被迫远离与悲伤",
+        "tension": 0.7,
+        "valence": -0.7
+      },
+      {
+        "emotion": "怀念",
+        "narrative_role": "turn",
+        "segment_id": "N3",
+        "summary": "旅途中回忆故乡",
+        "tension": 0.5,
+        "valence": -0.4
+      },
+      {
+        "emotion": "逐渐平静",
+        "narrative_role": "turn",
+        "segment_id": "N4",
+        "summary": "回忆带来平静",
+        "tension": 0.3,
+        "valence": -0.1
+      },
+      {
+        "emotion": "接受",
+        "narrative_role": "resolution",
+        "segment_id": "N5",
+        "summary": "接受现实并踏上新路",
+        "tension": 0.4,
+        "valence": 0.5
+      }
+    ],
+    "summary": "A person lives peacefully in their hometown, is suddenly forced to leave, experiences deep sadness, recalls familiar memories during the journey, gradually finds peace, and finally accepts reality to embark on a new path."
+  },
+  "story_id": "job-20260725-210857-08f0a18c",
+  "test_mode": false,
+  "theme_families": [
+    {
+      "base_symbol": "A",
+      "intent": "A gentle, flowing melody representing peaceful hometown life.",
+      "introduced_in_section_id": "S1",
+      "musecoco_attribute_targets": {
+        "B1s1": "9-12",
+        "EM1": "Q4",
+        "I1s2": [
+          "piano"
+        ],
+        "K1": "minor",
+        "P4": 2,
+        "R1": "not_danceable",
+        "R3": "low",
+        "S2s1": "chopin",
+        "S4": [
+          "classical"
+        ],
+        "T1s1": "moderate",
+        "TM1": "15-30",
+        "TS1s1": "4/4"
+      },
+      "musecoco_text": "The musical piece is a representative example of the classical style and is in the vein of Chopin. This music is composed in the minor key and follows a 4/4 meter. The music is brought to life through the use of piano. Its pitch range is within 2 octaves. The tempo of this song is moderate. This music is not suitable for dancing, and the song has a very peaceful beat. The music conveys calmness, relaxation, and serenity. The song spans approximately 9 ~ 12 bars and has a duration of 16 ~ 30 seconds.",
+      "musecoco_text_style": "official-template-aligned-v1",
+      "role": "main_theme",
+      "seed_bars": 8,
+      "theme_family_id": "theme-A"
+    },
+    {
+      "base_symbol": "B",
+      "intent": "A mournful and tense melody with emotional weight.",
+      "introduced_in_section_id": "S2",
+      "musecoco_attribute_targets": {
+        "B1s1": "9-12",
+        "EM1": "Q2",
+        "I1s2": [
+          "violin"
+        ],
+        "K1": "minor",
+        "P4": 2,
+        "R1": "not_danceable",
+        "R3": "high",
+        "S2s1": "schubert",
+        "S4": [
+          "classical"
+        ],
+        "T1s1": "moderate",
+        "TM1": "15-30",
+        "TS1s1": "4/4"
+      },
+      "musecoco_text": "The musical piece is a representative example of the classical style and is in the vein of Schubert. This music is composed in the minor key and follows a 4/4 meter. The music is brought to life through the use of violin. Its pitch range is within 2 octaves. The tempo of this song is moderate. This music is not suitable for dancing, and the song has an extremely strong beat. The music conveys tension, unease, and anxiety. The song spans approximately 9 ~ 12 bars and has a duration of 16 ~ 30 seconds.",
+      "musecoco_text_style": "official-template-aligned-v1",
+      "role": "conflict_theme",
+      "seed_bars": 8,
+      "theme_family_id": "theme-B"
+    },
+    {
+      "base_symbol": "C",
+      "intent": "A hopeful and forward-moving melody signifying new beginnings.",
+      "introduced_in_section_id": "S5",
+      "musecoco_attribute_targets": {
+        "B1s1": "9-12",
+        "EM1": "Q4",
+        "I1s2": [
+          "flute"
+        ],
+        "K1": "minor",
+        "P4": 2,
+        "R1": "not_danceable",
+        "R3": "medium",
+        "S2s1": "mozart",
+        "S4": [
+          "classical"
+        ],
+        "T1s1": "moderate",
+        "TM1": "15-30",
+        "TS1s1": "4/4"
+      },
+      "musecoco_text": "The musical piece is a representative example of the classical style and is in the vein of Mozart. This music is composed in the minor key and follows a 4/4 meter. The music is brought to life through the use of flute. Its pitch range is within 2 octaves. The tempo of this song is moderate. This music is not suitable for dancing, and the song has a moderate beat. The music conveys calmness, relaxation, and serenity. The song spans approximately 9 ~ 12 bars and has a duration of 16 ~ 30 seconds.",
+      "musecoco_text_style": "official-template-aligned-v1",
+      "role": "resolution_theme",
+      "seed_bars": 8,
+      "theme_family_id": "theme-C"
+    }
+  ],
+  "variation_tasks": [
+    {
+      "intent": "A nostalgic variation of the A theme, incorporating ornamental twists to evoke memories.",
+      "source_section_id": "S1",
+      "strategy": "midigpt_variation",
+      "target_bars": 16,
+      "target_section_id": "S3",
+      "task_id": "variation-S3",
+      "theme_family_id": "theme-A"
+    },
+    {
+      "intent": "Further develop the A theme towards calmness, smoothing out tensions.",
+      "source_section_id": "S3",
+      "strategy": "midigpt_development",
+      "target_bars": 16,
+      "target_section_id": "S4",
+      "task_id": "variation-S4",
+      "theme_family_id": "theme-A"
+    }
+  ]
+}
