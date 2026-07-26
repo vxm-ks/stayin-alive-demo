@@ -120,7 +120,12 @@ DEEPSEEK_API_KEY=你的真实Key
 python -m stage1_story_agent plan --story-text "这是一个需要转化为音乐结构的中文故事。" --force
 ```
 
-该命令在内存中转换为严格的 `StoryPlanRequest`：默认 `story_id=cli-story`、`language=zh-CN`、`total_bars=64`。未指定 `--output-dir` 时，以本地时间戳为前缀创建四个独立目录。可以用 `--story-id`、`--language` 和 `--output-dir` 覆盖对应值。
+该命令在内存中转换为严格的 `StoryPlanRequest`：默认
+`story_id=cli-story`、`language=zh-CN`。正式模式未显式指定
+`target_form_sections` 时，先运行曲式规模决策层，根据故事在 1–6 段之间选择规模，
+同时决定每段应引入、复现、变奏或发展哪个主题；每段仍为 16 小节，因此最终总长为
+16–96 小节。未指定 `--output-dir` 时，以本地时间戳为前缀创建四个独立目录。
+可以用 `--story-id`、`--language` 和 `--output-dir` 覆盖对应值。
 
 固定 ABA 测试模式：
 
@@ -128,11 +133,19 @@ python -m stage1_story_agent plan --story-text "这是一个需要转化为音�
 python -m stage1_story_agent plan --story-text "平静开始，冲突逐渐展开，最终回到最初的主题。" --test-mode
 ```
 
-测试模式鼓励 MuseCoco 生成约 12 小节，再严格交付 8 小节主题输入；曲式固定为 48 小节 `A-B-A`，三段均为“8 小节主题＋8 小节填充”。全曲固定为 C minor、96 BPM 和 4/4。长于 8 小节的 MIDI 会在精确小节边界裁剪并补齐仍发声音符的 Note Off，短于 8 小节则报错且不补静音。鼓轨张力固定为低/高/低：S1 与 S3 每小节仅第1拍触发一次，S2 每拍触发一次。Stage 2 据此生成整曲心跳鼓轨；S1/S2 音色映射在 Stage 3 对完整 MIDI 统一渲染时执行，而不是在 MIDI-GPT 后重建鼓轨。MuseCoco 旋律配置由程序硬覆盖为：A=solo piano/Chopin，B=solo violin/Schubert，统一 classical、2 个八度、not_danceable、medium rhythmic intensity。三个段落都保护前8小节主题，并把后8小节标记为 MIDI-GPT 延伸区。
+测试模式鼓励 MuseCoco 生成约 12 小节，再严格交付 8 小节主题输入；曲式固定为 48 小节 `A-B-A`，三段均为“8 小节主题＋8 小节填充”。全曲固定为 C minor、96 BPM 和 4/4。长于 8 小节的 MIDI 会在精确小节边界裁剪并补齐仍发声音符的 Note Off，短于 8 小节则报错且不补静音。故事文本和心跳 WAV 均可替换；故事仍决定 A/B 主题意图、MuseCoco 配器/风格/律动以及逐段张力和心跳密度，程序不再硬覆盖为固定钢琴/小提琴配置。Stage 2 根据故事张力生成整曲心跳鼓轨；S1/S2 音色映射在 Stage 3 对完整 MIDI 统一渲染时执行，而不是在 MIDI-GPT 后重建鼓轨。三个段落都保护前8小节主题，并把后8小节标记为 MIDI-GPT 延伸区。
 
-所有规划请求还会注入版本化的 `musecoco-prompting-v4` 本地知识：只使用官方支持的离散属性和值，并在正常模式下软性偏好清晰的独奏旋律乐器、2–3 个八度、适中速度/节奏和旋律导向的古典风格。项目层硬性禁用 Stravinsky 与 synthesizer；为保持官方 60 头编码位置稳定，它们仍出现在冻结枚举中，但模型或输入一旦选择就会被拒绝。LLM 为情绪弧和叙事段评估 `valence`（-1 到 1）与 `tension`（0 到 1），不再选择 EM1；Python 使用 `valence-arousal-v1` 从主题引入段确定 Q1–Q4。旧响应中的 EM1 会保留在原始审计响应中，但不会影响正式输出。测试模式同时注入精确 melodic profile；最终仍由 Python 硬校验。
+所有规划请求还会注入版本化的 `musecoco-prompting-v4` 本地知识：只使用官方支持的离散属性和值，并在正常模式下软性偏好清晰的独奏旋律乐器、2–3 个八度、适中速度/节奏和旋律导向的古典风格。项目层硬性禁用 Stravinsky 与 synthesizer；为保持官方 60 头编码位置稳定，它们仍出现在冻结枚举中，但模型或输入一旦选择就会被拒绝。LLM 为情绪弧和叙事段评估 `valence`（-1 到 1）与 `tension`（0 到 1），不再选择 EM1；Python 使用 `valence-arousal-v1` 从主题引入段确定 Q1–Q4。旧响应中的 EM1 会保留在原始审计响应中，但不会影响正式输出。测试模式只固定结构、调性和速度，不固定故事驱动的旋律画像。
 
-正式模式不固定 A/B/A 或其他曲式标签，段落数量和主题关系仍由故事规划决定；但每段统一为8小节主题加默认8小节填充。默认长度参数为 `musecoco_generation_bars=12`、`musecoco_output_bars=8` 和 `default_extension_bars=8`。主题交付长度固定为8小节，`--musecoco-output-bars` 仅接受8；生成目标仍可通过 `--musecoco-generation-bars` 调整且不得短于8。全曲总小节数必须是单段长度的整数倍，若指定 `target_form_sections`，必须与总小节数相符。使用 `plan --enqueue-musecoco --run-musecoco-queue` 时，成功结果会自动收集到 `raw_results/`，随后在 `generated_themes/` 中执行小节、速度、调性归一化并发布 `final.mid`。
+正式模式不固定 A/B/A 或其他曲式标签。前置 `stage1-form-scale-v1`
+决策层在 1–6 段之间选择规模，并建立主题复用蓝图；相同人物、地点、记忆或状态再次出现时可选择
+`reprise`，以 `A-B-A-C` 等形式复用主题，变化后的回归则可选择
+`variation` 或 `development`。详细规划器必须严格执行蓝图，Python 再次校验来源段和主题家族。
+每段统一为8小节主题加默认8小节填充。默认长度参数为
+`musecoco_generation_bars=12`、`musecoco_output_bars=8` 和
+`default_extension_bars=8`。显式提供 `target_form_sections` 时跳过自动规模判断。
+使用 `plan --enqueue-musecoco --run-musecoco-queue` 时，成功结果会自动收集到
+`raw_results/`，随后在 `generated_themes/` 中执行小节、速度、调性归一化并发布 `final.mid`。
 
 也可以只在当前 PowerShell 会话中设置环境变量：
 
@@ -156,7 +169,7 @@ python -m stage1_story_agent plan `
 
 CLI 退出码：0 成功；2 输入/配置；3 API/网络；4 模型内容尝试耗尽；5 产物写入失败。默认不覆盖已有目录，`--force` 使用 backup/restore 后再替换。
 
-当前成功产物包括 MuseCoco 计划与五个直接编码文件、`heartbeat_processing_plan.json`、`stage2_plan.json`，以及独立 audit 目录中的 `content_plan.json`、`raw_response.json`、`run_manifest.json`。三个业务消费者不会读取同一份混合计划。
+当前成功产物包括 MuseCoco 计划与五个直接编码文件、`heartbeat_processing_plan.json`、`stage2_plan.json`，以及独立 audit 目录中的 `content_plan.json`、`raw_response.json`、`form_scale_decision.json`、`run_manifest.json`。三个业务消费者不会读取同一份混合计划。
 
 ## 测试
 

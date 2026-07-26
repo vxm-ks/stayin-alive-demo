@@ -1,0 +1,177 @@
+{
+  "$defs": {
+    "FormBlueprintSection": {
+      "additionalProperties": false,
+      "properties": {
+        "base_symbol": {
+          "pattern": "^[A-H]$",
+          "title": "Base Symbol",
+          "type": "string"
+        },
+        "narrative_function": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Narrative Function",
+          "type": "string"
+        },
+        "relation": {
+          "$ref": "#/$defs/FormRelation"
+        },
+        "section_id": {
+          "pattern": "^S[1-9][0-9]?$",
+          "title": "Section Id",
+          "type": "string"
+        },
+        "source_section_id": {
+          "anyOf": [
+            {
+              "pattern": "^S[1-9][0-9]?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Section Id"
+        },
+        "variant_index": {
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Variant Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "section_id",
+        "base_symbol",
+        "variant_index",
+        "relation",
+        "narrative_function"
+      ],
+      "title": "FormBlueprintSection",
+      "type": "object"
+    },
+    "FormRelation": {
+      "enum": [
+        "introduce",
+        "reprise",
+        "variation",
+        "development"
+      ],
+      "title": "FormRelation",
+      "type": "string"
+    }
+  },
+  "additionalProperties": false,
+  "properties": {
+    "content_attempts": {
+      "default": 0,
+      "maximum": 3,
+      "minimum": 0,
+      "title": "Content Attempts",
+      "type": "integer"
+    },
+    "form_blueprint": {
+      "items": {
+        "$ref": "#/$defs/FormBlueprintSection"
+      },
+      "maxItems": 16,
+      "title": "Form Blueprint",
+      "type": "array"
+    },
+    "model": {
+      "anyOf": [
+        {
+          "maxLength": 120,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Model"
+    },
+    "network_attempts": {
+      "default": 0,
+      "minimum": 0,
+      "title": "Network Attempts",
+      "type": "integer"
+    },
+    "provider": {
+      "anyOf": [
+        {
+          "maxLength": 80,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Provider"
+    },
+    "rationale": {
+      "maxLength": 500,
+      "minLength": 1,
+      "title": "Rationale",
+      "type": "string"
+    },
+    "request_id": {
+      "anyOf": [
+        {
+          "maxLength": 200,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "Request Id"
+    },
+    "schema_version": {
+      "const": "stage1-form-scale-v1",
+      "default": "stage1-form-scale-v1",
+      "title": "Schema Version",
+      "type": "string"
+    },
+    "section_bars": {
+      "maximum": 79,
+      "minimum": 1,
+      "title": "Section Bars",
+      "type": "integer"
+    },
+    "section_count": {
+      "maximum": 16,
+      "minimum": 1,
+      "title": "Section Count",
+      "type": "integer"
+    },
+    "strategy": {
+      "enum": [
+        "story_llm",
+        "fixed_request",
+        "test_mode"
+      ],
+      "title": "Strategy",
+      "type": "string"
+    },
+    "total_bars": {
+      "maximum": 256,
+      "minimum": 4,
+      "title": "Total Bars",
+      "type": "integer"
+    }
+  },
+  "required": [
+    "strategy",
+    "section_count",
+    "section_bars",
+    "total_bars",
+    "rationale"
+  ],
+  "title": "FormScaleDecision",
+  "type": "object"
+}

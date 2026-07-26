@@ -12,6 +12,7 @@ from .backends import BackendResponse, LLMBackend
 from .config import Stage1Config
 from .errors import ModelContentError, PlanValidationError
 from .emotion import derive_theme_emotions, remove_deprecated_llm_em1
+from .form_scale import resolve_form_scale
 from .handoff import compile_stage2_handoff, make_deliveries
 from .models import (
     BackendRawResponse,
@@ -28,7 +29,6 @@ from .models import (
 from .musecoco import enrich_theme_family
 from .musecoco_length_policy import apply_musecoco_output_bars
 from .prompts import PROMPT_VERSION, build_initial_request, build_repair_request
-from .test_mode import apply_test_mode_melodic_profile
 from .utils import canonical_json_bytes, json_bytes, sha256_hex
 from .validators import validate_and_compile_draft, validate_content_plan
 
@@ -66,7 +66,11 @@ class Stage1StoryAgent:
         run_id = str(uuid4())
         previous_content = ""
         issues: list[dict[str, str]] = []
-        total_network_attempts = 0
+        request, form_scale_decision, total_network_attempts = resolve_form_scale(
+            self.backend,
+            request,
+            max_content_attempts=self.config.max_content_attempts,
+        )
 
         for content_attempt in range(1, self.config.max_content_attempts + 1):
             completion = (
@@ -89,10 +93,6 @@ class Stage1StoryAgent:
                     raw = apply_musecoco_output_bars(
                         raw, request.constraints.musecoco_output_bars
                     )
-                    if request.test_mode:
-                        raw = apply_test_mode_melodic_profile(
-                            raw, request.constraints.musecoco_output_bars
-                        )
                     raw = remove_deprecated_llm_em1(raw)
                     try:
                         draft = LLMContentPlanDraft.model_validate(raw)
@@ -180,6 +180,9 @@ class Stage1StoryAgent:
                     "heartbeat_processing_plan.json": sha256_hex(json_bytes(heartbeat_delivery)),
                     "stage2_plan.json": sha256_hex(json_bytes(stage2_delivery)),
                     "raw_response.json": sha256_hex(json_bytes(raw_response)),
+                    "form_scale_decision.json": sha256_hex(
+                        json_bytes(form_scale_decision)
+                    ),
                 }
                 return PlanRun(
                     content_plan=content_plan,
@@ -187,6 +190,7 @@ class Stage1StoryAgent:
                     heartbeat_delivery=heartbeat_delivery,
                     stage2_delivery=stage2_delivery,
                     raw_response=raw_response,
+                    form_scale_decision=form_scale_decision,
                     manifest=RunManifest(
                         story_id=request.story_id,
                         run_id=run_id,

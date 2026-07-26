@@ -20,6 +20,70 @@ def valid_response() -> str:
 
 
 class AgentTests(unittest.TestCase):
+    def test_auto_form_scale_can_choose_abac_theme_reuse(self):
+        request_payload = make_request().model_dump(mode="json", by_alias=True)
+        request_payload["constraints"]["target_form_sections"] = None
+        request = type(make_request()).model_validate(request_payload)
+        scale_response = json.dumps(
+            {
+                "section_count": 4,
+                "rationale": "The remembered opening returns before a new resolution.",
+                "sections": [
+                    {
+                        "narrative_function": "establish home",
+                        "theme_action": "introduce",
+                        "source_section": None,
+                    },
+                    {
+                        "narrative_function": "departure conflict",
+                        "theme_action": "introduce",
+                        "source_section": None,
+                    },
+                    {
+                        "narrative_function": "memory of home returns",
+                        "theme_action": "reprise",
+                        "source_section": 1,
+                    },
+                    {
+                        "narrative_function": "accept the new path",
+                        "theme_action": "introduce",
+                        "source_section": None,
+                    },
+                ],
+            },
+            ensure_ascii=False,
+        )
+        detailed = draft_data()
+        detailed["form_sections"][2].update(
+            {
+                "variant_index": 0,
+                "relation": "reprise",
+                "source_section_id": "S1",
+            }
+        )
+        backend = FakeBackend(
+            [scale_response, json.dumps(detailed, ensure_ascii=False)]
+        )
+
+        run = Stage1StoryAgent(backend).plan(request)
+
+        self.assertEqual(run.content_plan.form_plan.form_string, "A-B-A-C")
+        self.assertEqual(run.form_scale_decision.strategy, "story_llm")
+        self.assertEqual(run.form_scale_decision.section_count, 4)
+        self.assertEqual(run.form_scale_decision.total_bars, 64)
+        self.assertEqual(
+            [item.relation.value for item in run.form_scale_decision.form_blueprint],
+            ["introduce", "introduce", "reprise", "introduce"],
+        )
+        self.assertEqual(len(backend.requests), 2)
+        detailed_prompt = json.loads(backend.requests[1].messages[1].content)
+        self.assertEqual(
+            detailed_prompt["request"]["constraints"]["form_blueprint"][2][
+                "source_section_id"
+            ],
+            "S1",
+        )
+
     def test_successful_plan_enriches_all_families(self):
         backend = FakeBackend([valid_response()])
         run = Stage1StoryAgent(backend).plan(make_request())
@@ -30,6 +94,7 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(plan.musecoco_requests, [])
         self.assertEqual({family.musecoco_attribute_targets.K1 for family in plan.theme_families}, {"minor"})
         self.assertEqual(plan.provenance.content_attempts, 1)
+        self.assertEqual(run.form_scale_decision.strategy, "fixed_request")
         prompt_payload = json.loads(backend.requests[0].messages[1].content)
         knowledge = prompt_payload["musecoco_planning_knowledge"]
         self.assertEqual(knowledge["authority"]["normal_mode"], "soft preferences; story intent may justify another supported value")
@@ -115,17 +180,29 @@ class AgentTests(unittest.TestCase):
         self.assertEqual(plan.global_.time_signature, "4/4")
         self.assertEqual(len(plan.theme_families), 2)
         self.assertEqual(plan.variation_tasks, [])
-        self.assertEqual({family.musecoco_attribute_targets.R3 for family in plan.theme_families}, {"medium"})
-        self.assertEqual([family.musecoco_attribute_targets.I1s2 for family in plan.theme_families], [["piano"], ["violin"]])
-        self.assertEqual([family.musecoco_attribute_targets.S2s1 for family in plan.theme_families], ["chopin", "schubert"])
-        self.assertEqual({tuple(family.musecoco_attribute_targets.S4) for family in plan.theme_families}, {("classical",)})
+        self.assertEqual(
+            [family.musecoco_attribute_targets.R3 for family in plan.theme_families],
+            ["low", "high"],
+        )
+        self.assertEqual(
+            [family.musecoco_attribute_targets.I1s2 for family in plan.theme_families],
+            [["piano", "cello"], ["strings", "drum"]],
+        )
+        self.assertEqual(
+            [family.musecoco_attribute_targets.S2s1 for family in plan.theme_families],
+            ["chopin", "prokofiev"],
+        )
+        self.assertEqual(
+            [family.musecoco_attribute_targets.S4 for family in plan.theme_families],
+            [["classical"], ["symphony"]],
+        )
         self.assertEqual({family.musecoco_attribute_targets.P4 for family in plan.theme_families}, {2})
         self.assertEqual(
             [family.musecoco_attribute_targets.EM1 for family in plan.theme_families],
             ["Q4", "Q2"],
         )
-        self.assertIn("use of piano", plan.theme_families[0].musecoco_text)
-        self.assertIn("use of violin", plan.theme_families[1].musecoco_text)
+        self.assertIn("piano and cello", plan.theme_families[0].musecoco_text)
+        self.assertIn("strings and drum", plan.theme_families[1].musecoco_text)
         self.assertEqual(
             {family.musecoco_text_style for family in plan.theme_families},
             {"official-template-aligned-v1"},
@@ -137,16 +214,16 @@ class AgentTests(unittest.TestCase):
         self.assertEqual([item.tempo_bpm for item in handoff], [96, 96, 96])
         self.assertEqual(
             [item.drum_pattern.pattern for item in handoff],
-            ["single_pulse_per_bar", "pulse_each_beat", "single_pulse_per_bar"],
+            ["single_pulse_per_bar", "pulse_each_beat", "pulse_each_beat"],
         )
         heartbeat = run.heartbeat_delivery.sections
         self.assertEqual(
             [item.trigger_mode for item in heartbeat],
-            ["once_per_bar", "every_beat", "once_per_bar"],
+            ["once_per_bar", "every_beat", "every_beat"],
         )
         self.assertEqual(
             [item.heart_sounds for item in heartbeat],
-            [["S1", "S2"], ["S1"], ["S1", "S2"]],
+            [["S1", "S2"], ["S1"], ["S1"]],
         )
         self.assertEqual(heartbeat[0].trigger_beats, [1.0])
         self.assertEqual(heartbeat[1].trigger_beats, [1.0, 2.0, 3.0, 4.0])
@@ -165,33 +242,33 @@ class AgentTests(unittest.TestCase):
             knowledge["emotion_derivation"]["authority"],
             "Python-only; the LLM must not choose EM1",
         )
-        self.assertIn("test_mode_exact_melodic_profile", knowledge)
+        self.assertNotIn("test_mode_exact_melodic_profile", knowledge)
         self.assertTrue(knowledge["melodic_soft_preferences"])
 
-    def test_test_mode_overrides_conflicting_musecoco_choices(self):
+    def test_test_mode_preserves_story_controlled_musecoco_choices(self):
         data = test_mode_draft_data()
-        for family in data["theme_families"]:
-            family["seed_bars"] = 7
-            family["musecoco_choices"].update(
-                {
-                    "I1s2": ["drum", "brass"],
-                    "R1": "danceable",
-                    "R3": "high",
-                    "S2s1": "stravinsky",
-                    "S4": ["electronic"],
-                    "P4": 6,
-                }
-            )
+        data["theme_families"][0]["seed_bars"] = 7
+        data["theme_families"][0]["musecoco_choices"].update(
+            {
+                "I1s2": ["flute"],
+                "R1": "danceable",
+                "R3": "high",
+                "S2s1": "mozart",
+                "S4": ["classical"],
+                "P4": 3,
+            }
+        )
         run = Stage1StoryAgent(
             FakeBackend([json.dumps(data, ensure_ascii=False)])
         ).plan(make_test_mode_request())
         families = run.content_plan.theme_families
         self.assertEqual(run.content_plan.provenance.content_attempts, 1)
         self.assertEqual([family.seed_bars for family in families], [8, 8])
-        self.assertEqual([family.musecoco_attribute_targets.I1s2 for family in families], [["piano"], ["violin"]])
-        self.assertEqual([family.musecoco_attribute_targets.S2s1 for family in families], ["chopin", "schubert"])
-        self.assertEqual({tuple(family.musecoco_attribute_targets.S4) for family in families}, {("classical",)})
-        self.assertEqual({family.musecoco_attribute_targets.P4 for family in families}, {2})
+        self.assertEqual(families[0].musecoco_attribute_targets.I1s2, ["flute"])
+        self.assertEqual(families[0].musecoco_attribute_targets.R1, "danceable")
+        self.assertEqual(families[0].musecoco_attribute_targets.R3, "high")
+        self.assertEqual(families[0].musecoco_attribute_targets.S2s1, "mozart")
+        self.assertEqual(families[0].musecoco_attribute_targets.P4, 3)
 
 
 if __name__ == "__main__":

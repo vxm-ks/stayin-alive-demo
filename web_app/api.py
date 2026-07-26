@@ -46,6 +46,7 @@ class WebTask:
     story: str
     upload_path: Path
     dry_run: bool
+    test_mode: bool
     created_at: str = field(default_factory=lambda: datetime.now(UTC).isoformat())
     job_dir: Path | None = None
     error: str | None = None
@@ -170,6 +171,7 @@ def _run(task: WebTask) -> None:
             config=_config(),
             package_id="patient",
             dry_run=task.dry_run,
+            test_mode=task.test_mode,
         )
         task.job_dir = result
     except (PipelineError, OSError, ValueError) as exc:
@@ -191,6 +193,10 @@ def _state(task: WebTask) -> dict[str, Any]:
         "progress": STAGE_PROGRESS["queued"],
         "created_at": task.created_at,
         "dry_run": task.dry_run,
+        "test_mode": task.test_mode,
+        "generation_mode": (
+            "dry_run" if task.dry_run else "test" if task.test_mode else "production"
+        ),
         "failure": None,
         "audio_ready": False,
     }
@@ -237,6 +243,7 @@ async def create_task(
     heartbeat: UploadFile = File(...),
     story: str = Form(...),
     dry_run: bool = Form(False),
+    test_mode: bool = Form(False),
 ) -> dict[str, Any]:
     if not story.strip():
         raise HTTPException(422, "Story cannot be empty.")
@@ -245,6 +252,8 @@ async def create_task(
     filename = heartbeat.filename or "heartbeat.wav"
     if Path(filename).suffix.lower() != ".wav":
         raise HTTPException(415, "Heartbeat input must be a .wav file.")
+    if dry_run and test_mode:
+        raise HTTPException(422, "Dry run and test mode are mutually exclusive.")
     with tasks_lock:
         if any(_state(item)["status"] in {"QUEUED", "RUNNING"} for item in tasks.values()):
             raise HTTPException(409, "Another generation is currently running.")
@@ -257,7 +266,13 @@ async def create_task(
         if upload_path.stat().st_size == 0:
             upload_path.unlink(missing_ok=True)
             raise HTTPException(422, "Uploaded WAV file is empty.")
-        task = WebTask(id=task_id, story=story.strip(), upload_path=upload_path, dry_run=dry_run)
+        task = WebTask(
+            id=task_id,
+            story=story.strip(),
+            upload_path=upload_path,
+            dry_run=dry_run,
+            test_mode=test_mode,
+        )
         tasks[task_id] = task
     threading.Thread(target=_run, args=(task,), name=f"legasynth-{task_id}", daemon=True).start()
     return _state(task)

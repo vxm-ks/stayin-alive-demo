@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import DemoCase from './DemoCase'
 
 type Lang = 'zh' | 'en'
 type View = 'create' | 'generating' | 'result'
+type GenerationMode = 'production' | 'test' | 'demo'
 type TaskState = {
   task_id: string
   status: string
@@ -19,8 +21,11 @@ const copy = {
     step1: '01 · 心跳样本', step2: '02 · 你的故事', wavOnly: '支持 WAV · 建议 10–60 秒',
     upload: '拖入心音文件', browse: '或点击选择本地 WAV', replace: '点击更换文件',
     storyLabel: '写下你想让音乐讲述的故事', placeholder: '例如：那年夏天，我们沿着海岸一直走，晚风带着盐的味道……',
-    hint: '一段具体、有情绪变化的故事，会让音乐更有层次。', demo: '演示模式',
-    demoHint: '快速生成，不调用模型', generate: '开始生成音乐', privacy: '你的心音仅用于本次创作，不会离开本机。',
+    hint: '一段具体、有情绪变化的故事，会让音乐更有层次。', modeLabel: '生成模式',
+    production: '正式生成', productionHint: '故事决定 1–6 段曲式与主题复用',
+    test: '测试模式', testHint: '固定结构，故事与心跳可替换',
+    demo: '快速演示', demoHint: '不调用模型，仅验证交互',
+    generate: '开始生成音乐', privacy: '你的心音仅用于本次创作，不会离开本机。',
     generating: '正在聆听你的故事', generatingSub: '我们正在把心跳的节律、故事的情绪与音乐结构融合。请保持页面开启。',
     stages: ['解析心跳', '理解故事', '谱写旋律', '融合生命节律', '完成作品'],
     stageDesc: ['提取真实心音事件', '分析情绪与叙事弧线', '构建主题与完整乐章', '渲染真实 S1 / S2 音色', '为你保存这一刻'],
@@ -35,8 +40,11 @@ const copy = {
     step1: '01 · Heartbeat', step2: '02 · Your story', wavOnly: 'WAV · 10–60 seconds recommended',
     upload: 'Drop your heartbeat here', browse: 'or choose a WAV from your device', replace: 'Click to choose another file',
     storyLabel: 'What story should this music tell?', placeholder: 'For example: That summer, we walked along the coast until dusk, with salt carried on the wind…',
-    hint: 'A vivid story with emotional movement creates a richer musical arc.', demo: 'Demo mode',
-    demoHint: 'Fast preview without models', generate: 'Create my music', privacy: 'Your heartbeat stays on this device and is used only for this piece.',
+    hint: 'A vivid story with emotional movement creates a richer musical arc.', modeLabel: 'Generation mode',
+    production: 'Production', productionHint: 'Story chooses 1–6 sections and theme reuse',
+    test: 'Test mode', testHint: 'Fixed form; story and heartbeat stay variable',
+    demo: 'Quick demo', demoHint: 'UI preview without models',
+    generate: 'Create my music', privacy: 'Your heartbeat stays on this device and is used only for this piece.',
     generating: 'Listening to your story', generatingSub: 'We are bringing heartbeat, emotion and musical form together. Please keep this page open.',
     stages: ['Reading heartbeat', 'Understanding story', 'Writing melody', 'Blending life rhythm', 'Your piece is ready'],
     stageDesc: ['Extracting authentic heart events', 'Tracing emotion and narrative', 'Building themes and a complete score', 'Rendering real S1 / S2 timbres', 'Preserving this moment for you'],
@@ -223,7 +231,7 @@ export default function App() {
   const [view, setView] = useState<View>('create')
   const [file, setFile] = useState<File | null>(null)
   const [story, setStory] = useState('')
-  const [demo, setDemo] = useState(true)
+  const [generationMode, setGenerationMode] = useState<GenerationMode>('production')
   const [dragging, setDragging] = useState(false)
   const [task, setTask] = useState<TaskState | null>(null)
   const [message, setMessage] = useState('')
@@ -254,7 +262,11 @@ export default function App() {
   const submit = async () => {
     if (!file || !story.trim()) { setMessage(t.required); return }
     setMessage(''); setView('generating')
-    const form = new FormData(); form.append('heartbeat', file); form.append('story', story); form.append('dry_run', String(demo))
+    const form = new FormData()
+    form.append('heartbeat', file)
+    form.append('story', story)
+    form.append('dry_run', String(generationMode === 'demo'))
+    form.append('test_mode', String(generationMode === 'test'))
     try {
       const response = await fetch('/api/tasks', { method: 'POST', body: form })
       const data = await response.json()
@@ -264,13 +276,15 @@ export default function App() {
   }
   const reset = () => { setView('create'); setTask(null); setFile(null); setStory(''); setMessage('') }
 
+  const queryView = new URLSearchParams(window.location.search).get('view')
+  if (queryView === 'demo' || window.location.pathname.endsWith('/demo')) return <DemoCase lang={lang} setLang={setLang}/>
   if (window.location.pathname === '/wave-demo') return <WaveDemo lang={lang} setLang={setLang}/>
 
   return <main className={`app view-${view}`}>
     <div className="ambient ambientOne"/><div className="ambient ambientTwo"/><div className="grain"/>
     <header>
       <button className="brand" onClick={reset}><LogoMark/><span>stayin’ alive</span></button>
-      <nav><button className={view === 'create' ? 'active' : ''} onClick={reset}>{t.navCreate}</button><button className={view === 'result' ? 'active' : ''}>{t.navWork}</button></nav>
+      <nav><button className={view === 'create' ? 'active' : ''} onClick={reset}>{t.navCreate}</button><button className={view === 'result' ? 'active' : ''}>{t.navWork}</button><a href="?view=demo">{lang === 'zh' ? '案例' : 'Case'}</a></nav>
       <div className="language"><button className={lang === 'zh' ? 'selected' : ''} onClick={() => setLang('zh')}>中</button><i/><button className={lang === 'en' ? 'selected' : ''} onClick={() => setLang('en')}>EN</button></div>
     </header>
 
@@ -295,7 +309,25 @@ export default function App() {
           <p className="tip"><span>✦</span>{t.hint}</p>
         </div>
         <div className="cardFooter">
-          <label className="demoToggle"><input type="checkbox" checked={demo} onChange={e => setDemo(e.target.checked)}/><span className="switch"><i/></span><b>{t.demo}</b><small>{t.demoHint}</small></label>
+          <fieldset className="modePicker">
+            <legend>{t.modeLabel}</legend>
+            {([
+              ['production', t.production, t.productionHint],
+              ['test', t.test, t.testHint],
+              ['demo', t.demo, t.demoHint],
+            ] as const).map(([value, label, hint]) =>
+              <label key={value} className={generationMode === value ? 'selected' : ''}>
+                <input
+                  type="radio"
+                  name="generationMode"
+                  value={value}
+                  checked={generationMode === value}
+                  onChange={() => setGenerationMode(value)}
+                />
+                <span><b>{label}</b><small>{hint}</small></span>
+              </label>
+            )}
+          </fieldset>
           <button className="generate" onClick={submit}><span>{t.generate}</span><i>→</i></button>
         </div>
       </div>

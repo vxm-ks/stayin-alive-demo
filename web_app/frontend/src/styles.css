@@ -100,7 +100,8 @@ nav {
   gap: 34px;
   height: 100%;
 }
-nav button {
+nav button,
+nav a {
   border: 0;
   background: none;
   color: #87969d;
@@ -108,9 +109,14 @@ nav button {
   letter-spacing: 0.08em;
   position: relative;
   cursor: pointer;
+  display: flex;
+  align-items: center;
+  text-decoration: none;
 }
-nav button.active { color: var(--cool-deep); }
-nav button.active::after {
+nav button.active,
+nav a.active { color: var(--cool-deep); }
+nav button.active::after,
+nav a.active::after {
   content: "";
   position: absolute;
   bottom: 0;
@@ -333,39 +339,44 @@ nav button.active::after {
   padding: 0 34px;
   background: rgba(249, 252, 251, 0.68);
 }
-.demoToggle {
-  display: grid;
-  grid-template-columns: 38px auto;
-  grid-template-rows: 20px 17px;
-  column-gap: 11px;
-  cursor: pointer;
+.modePicker {
+  border: 0;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  align-items: stretch;
+  gap: 6px;
 }
-.demoToggle input { display: none; }
-.demoToggle .switch {
-  grid-row: 1 / 3;
-  width: 35px;
-  height: 19px;
-  margin: auto 0;
-  border-radius: 20px;
-  background: #dbe4e5;
-  position: relative;
-  transition: 0.2s;
-}
-.switch i {
+.modePicker legend {
   position: absolute;
-  width: 13px;
-  height: 13px;
-  left: 3px;
-  top: 3px;
-  border-radius: 50%;
-  background: white;
-  box-shadow: 0 2px 6px rgba(48, 79, 86, 0.16);
-  transition: 0.2s;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
 }
-.demoToggle input:checked + .switch { background: var(--cool); }
-.demoToggle input:checked + .switch i { left: 19px; background: white; }
-.demoToggle b { font-size: 11px; font-weight: 600; color: #526873; }
-.demoToggle small { font-size: 9px; color: #91a0a5; }
+.modePicker label {
+  min-width: 118px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(255, 255, 255, 0.58);
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+.modePicker label:hover { border-color: rgba(103, 151, 158, 0.45); }
+.modePicker label.selected {
+  border-color: rgba(89, 145, 153, 0.68);
+  background: rgba(224, 240, 240, 0.72);
+  box-shadow: 0 5px 16px rgba(68, 112, 119, 0.08);
+}
+.modePicker input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.modePicker span { display: grid; gap: 2px; }
+.modePicker b { font-size: 10px; font-weight: 650; color: #526873; }
+.modePicker small { font-size: 8px; color: #91a0a5; white-space: nowrap; }
 .generate {
   height: 46px;
   min-width: 205px;
@@ -753,6 +764,8 @@ footer b { font-weight: 400; text-transform: uppercase; }
   .divider span { padding: 0 9px; }
   .dropzone { height: 190px; }
   .cardFooter { height: auto; padding: 20px 22px; gap: 18px; flex-direction: column; align-items: stretch; }
+  .modePicker { display: grid; grid-template-columns: 1fr; }
+  .modePicker label { min-width: 0; }
   .generate { justify-content: space-between; }
   .stageList { grid-template-columns: 1fr; gap: 11px; text-align: left; }
   .stageList div { display: grid; grid-template-columns: 35px 1fr; grid-template-rows: 18px 17px; align-items: center; text-align: left; }

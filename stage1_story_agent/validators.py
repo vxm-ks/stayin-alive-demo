@@ -9,15 +9,8 @@ from .handoff import HIGH_TENSION_EVERY_BEAT_BELOW_BPM, TENSION_THRESHOLD
 from .models import ContentPlan, FormCompilation, FormRelation, LLMContentPlanDraft, StoryPlanRequest
 from .musecoco import MUSECOCO_ATTRIBUTE_KEYS, bar_bucket, duration_bucket, duration_seconds, tempo_class
 from .test_mode import (
-    TEST_MODE_DANCEABILITY,
     TEST_MODE_FORM_LABELS,
-    TEST_MODE_GENRES,
-    TEST_MODE_MELODIC_FAMILY_PROFILE,
     TEST_MODE_MODE,
-    TEST_MODE_RHYTHMIC_INTENSITY,
-    TEST_MODE_DRUM_PATTERNS,
-    TEST_MODE_SECTION_TENSIONS,
-    TEST_MODE_PITCH_RANGE_OCTAVES,
     TEST_MODE_SECTION_BARS,
     TEST_MODE_TEMPO_BPM,
     TEST_MODE_TIME_SIGNATURE,
@@ -74,6 +67,38 @@ def validate_and_compile_draft(
             referenced_ids.add(segment_id)
             if segment_id not in segment_ids:
                 issues.append(_issue("NARRATIVE_SEGMENT_NOT_FOUND", f"form_sections[{section_index}].narrative_segment_ids[{ref_index}]", f"narrative segment {segment_id} does not exist"))
+    if constraints.form_blueprint is not None:
+        actual_blueprint = [
+            (
+                section.section_id,
+                section.base_symbol,
+                section.variant_index,
+                section.relation,
+                section.source_section_id,
+            )
+            for section in draft.form_sections
+        ]
+        expected_blueprint = [
+            (
+                section.section_id,
+                section.base_symbol,
+                section.variant_index,
+                section.relation,
+                section.source_section_id,
+            )
+            for section in constraints.form_blueprint
+        ]
+        if actual_blueprint != expected_blueprint:
+            issues.append(
+                _issue(
+                    "FORM_BLUEPRINT_MISMATCH",
+                    "form_sections",
+                    (
+                        "form sections must follow the story-driven form scale "
+                        "decision, including every theme reuse relationship"
+                    ),
+                )
+            )
     for index, segment in enumerate(segments):
         if segment.segment_id not in referenced_ids:
             issues.append(_issue("NARRATIVE_SEGMENT_UNCOVERED", f"story_analysis.narrative_segments[{index}].segment_id", f"narrative segment {segment.segment_id} is not referenced by any form section"))
@@ -150,19 +175,8 @@ def validate_and_compile_draft(
         ):
             issues.append(_issue("TEST_MODE_GLOBAL_MISMATCH", "global_proposal", "test mode requires C minor, 96 BPM, and 4/4"))
         for index, family in enumerate(draft.theme_families):
-            choices = family.musecoco_choices
-            if choices.R1 != TEST_MODE_DANCEABILITY or choices.R3 != TEST_MODE_RHYTHMIC_INTENSITY:
-                issues.append(_issue("TEST_MODE_RHYTHM_MISMATCH", f"theme_families[{index}].musecoco_choices", "all test-mode families require not_danceable and medium rhythmic intensity"))
             if family.seed_bars != request.constraints.musecoco_output_bars:
                 issues.append(_issue("TEST_MODE_MOTIF_LENGTH_MISMATCH", f"theme_families[{index}].seed_bars", "test-mode seed_bars must equal constraints.musecoco_output_bars"))
-            melodic = TEST_MODE_MELODIC_FAMILY_PROFILE.get(family.base_symbol)
-            if melodic is not None and (
-                tuple(choices.I1s2) != melodic["instruments"]
-                or choices.S2s1 != melodic["artist"]
-                or tuple(choices.S4) != TEST_MODE_GENRES
-                or choices.P4 != TEST_MODE_PITCH_RANGE_OCTAVES
-            ):
-                issues.append(_issue("TEST_MODE_MELODIC_PROFILE_MISMATCH", f"theme_families[{index}].musecoco_choices", "test mode requires the fixed MuseCoco melodic profile"))
         for index, section in enumerate(draft.form_sections):
             if section.tempo_bpm != TEST_MODE_TEMPO_BPM:
                 issues.append(_issue("TEST_MODE_SECTION_TEMPO_MISMATCH", f"form_sections[{index}].tempo_bpm", "test mode requires 96 BPM in every section"))
@@ -257,17 +271,14 @@ def validate_content_plan(request: StoryPlanRequest, plan: ContentPlan) -> None:
                 or instruction.extension_bars != section.bar_count - instruction.input_motif_bars
             ):
                 issues.append(_issue("STAGE2_SECTION_COORDINATE_MISMATCH", path, "Stage 2 length and coordinates must match the compiled form"))
-            if request.test_mode:
-                expected_tension = TEST_MODE_SECTION_TENSIONS[section.section_id]
-            else:
-                expected_tension = max(
-                    (
-                        narrative_by_id[segment_id].tension
-                        for segment_id in section.narrative_segment_ids
-                        if segment_id in narrative_by_id
-                    ),
-                    default=-1.0,
-                )
+            expected_tension = max(
+                (
+                    narrative_by_id[segment_id].tension
+                    for segment_id in section.narrative_segment_ids
+                    if segment_id in narrative_by_id
+                ),
+                default=-1.0,
+            )
             expected_level = "high" if expected_tension >= TENSION_THRESHOLD else "low"
             expected_pattern = (
                 "pulse_each_beat"
@@ -320,7 +331,7 @@ def validate_content_plan(request: StoryPlanRequest, plan: ContentPlan) -> None:
         if tuple(section.form_label for section in sections) != TEST_MODE_FORM_LABELS:
             issues.append(_issue("TEST_MODE_FORM_MISMATCH", "form_plan.sections", "final test-mode form must be A-B-A"))
         if tuple(section.bar_count for section in sections) != TEST_MODE_SECTION_BARS:
-            issues.append(_issue("TEST_MODE_FORM_MISMATCH", "form_plan.sections", "final test-mode bars must be 8, 16, and 8"))
+            issues.append(_issue("TEST_MODE_FORM_MISMATCH", "form_plan.sections", "final test-mode sections must each contain 16 bars"))
         if (
             global_plan.tempo_bpm != TEST_MODE_TEMPO_BPM
             or global_plan.time_signature != TEST_MODE_TIME_SIGNATURE
@@ -329,27 +340,14 @@ def validate_content_plan(request: StoryPlanRequest, plan: ContentPlan) -> None:
         ):
             issues.append(_issue("TEST_MODE_GLOBAL_MISMATCH", "global", "final test-mode global settings must be C minor, 96 BPM, and 4/4"))
         for index, family in enumerate(plan.theme_families):
-            targets = family.musecoco_attribute_targets
-            if targets.R1 != TEST_MODE_DANCEABILITY or targets.R3 != TEST_MODE_RHYTHMIC_INTENSITY:
-                issues.append(_issue("TEST_MODE_RHYTHM_MISMATCH", f"theme_families[{index}].musecoco_attribute_targets", "final test-mode rhythm controls must be shared"))
             if family.seed_bars != request.constraints.musecoco_output_bars:
                 issues.append(_issue("TEST_MODE_MOTIF_LENGTH_MISMATCH", f"theme_families[{index}].seed_bars", "final test-mode seed_bars must equal constraints.musecoco_output_bars"))
-            melodic = TEST_MODE_MELODIC_FAMILY_PROFILE.get(family.base_symbol)
-            if melodic is not None and (
-                tuple(targets.I1s2) != melodic["instruments"]
-                or targets.S2s1 != melodic["artist"]
-                or tuple(targets.S4) != TEST_MODE_GENRES
-                or targets.P4 != TEST_MODE_PITCH_RANGE_OCTAVES
-            ):
-                issues.append(_issue("TEST_MODE_MELODIC_PROFILE_MISMATCH", f"theme_families[{index}].musecoco_attribute_targets", "final test-mode MuseCoco attributes must match the melodic profile"))
         expected_access = ("extension_only",) * len(sections)
-        for index, (instruction, expected, expected_pattern) in enumerate(zip(plan.stage2_handoff.sections, expected_access, TEST_MODE_DRUM_PATTERNS, strict=True)):
+        for index, (instruction, expected) in enumerate(zip(plan.stage2_handoff.sections, expected_access, strict=True)):
             if instruction.tempo_bpm != TEST_MODE_TEMPO_BPM:
                 issues.append(_issue("TEST_MODE_SECTION_TEMPO_MISMATCH", f"stage2_handoff.sections[{index}].tempo_bpm", "test-mode section tempo must be 96 BPM"))
             if instruction.input_motif_bars != request.constraints.musecoco_output_bars:
                 issues.append(_issue("TEST_MODE_MOTIF_LENGTH_MISMATCH", f"stage2_handoff.sections[{index}].input_motif_bars", "test-mode input motif must equal constraints.musecoco_output_bars"))
-            if instruction.drum_pattern.pattern != expected_pattern:
-                issues.append(_issue("TEST_MODE_DRUM_PATTERN_MISMATCH", f"stage2_handoff.sections[{index}].drum_pattern.pattern", f"test mode expected {expected_pattern}"))
             if instruction.midigpt_access != expected:
                 issues.append(_issue("TEST_MODE_MIDIGPT_ACCESS_MISMATCH", f"stage2_handoff.sections[{index}].midigpt_access", f"expected {expected}"))
     if issues:

@@ -12,6 +12,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -23,7 +24,7 @@ from pathlib import Path
 from typing import Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 
-VERSION = "1.2.0"
+VERSION = "1.3.0"
 DEFAULT_MAX_ATTEMPTS = 3
 TASK_SCHEMA = "musecoco-task-package-v1"
 REQUIRED_TASK_FILES = (
@@ -57,6 +58,10 @@ SCALAR_VECTOR_SIZES = {
 
 class MuseCocoQueueError(RuntimeError):
     pass
+
+
+REMI_TOKEN_RE = re.compile(r"^([a-z])-([0-9]+)$")
+REMI_MUSIC_TYPES = frozenset(("b", "s", "o", "t", "i", "p", "d", "v"))
 
 
 @dataclass(frozen=True)
@@ -532,6 +537,165 @@ def _write_hash_list(path: Path, named_paths: Mapping[str, Path]) -> Dict[str, s
     return values
 
 
+def validate_remi_output(path: Path) -> Dict[str, int]:
+    """Validate the generated REMIGEN2 music suffix without editing it."""
+
+    if not path.is_file() or path.is_symlink() or path.stat().st_size == 0:
+        raise MuseCocoQueueError(
+            "expected non-empty, non-symlinked official REMI output not found: {}".format(
+                path
+            )
+        )
+    try:
+        tokens = path.read_text(encoding="utf-8").split()
+    except (OSError, UnicodeError) as exc:
+        raise MuseCocoQueueError("could not read official REMI output {}: {}".format(path, exc))
+    if tokens.count("<sep>") != 1:
+        raise MuseCocoQueueError("official REMI output must contain exactly one <sep> token")
+    music_tokens = tokens[tokens.index("<sep>") + 1 :]
+    if not music_tokens:
+        raise MuseCocoQueueError("official REMI output has no music tokens after <sep>")
+
+    previous_type = None
+    bar_count = 0
+    note_count = 0
+    for index, token in enumerate(music_tokens):
+        match = REMI_TOKEN_RE.fullmatch(token)
+        if match is None:
+            raise MuseCocoQueueError(
+                "invalid REMI music token at index {}: {!r}".format(index, token)
+            )
+        item_type = match.group(1)
+        if item_type not in REMI_MUSIC_TYPES:
+            raise MuseCocoQueueError(
+                "unknown REMI music token type at index {}: {!r}".format(index, token)
+            )
+        if item_type == "d" and previous_type != "p":
+            raise MuseCocoQueueError(
+                "invalid REMI transition at index {}: duration follows {!r}, not pitch".format(
+                    index, previous_type
+                )
+            )
+        if item_type == "v" and previous_type != "d":
+            raise MuseCocoQueueError(
+                "invalid REMI transition at index {}: velocity follows {!r}, not duration".format(
+                    index, previous_type
+                )
+            )
+        if item_type == "b":
+            bar_count += 1
+        elif item_type == "v":
+            note_count += 1
+        previous_type = item_type
+
+    if previous_type not in ("b", "v"):
+        raise MuseCocoQueueError(
+            "official REMI output ends with incomplete token type {!r}".format(previous_type)
+        )
+    if bar_count < 1 or note_count < 1:
+        raise MuseCocoQueueError(
+            "official REMI output contains no complete musical material"
+        )
+    return {
+        "token_count": len(music_tokens),
+        "bar_token_count": bar_count,
+        "complete_note_count": note_count,
+    }
+
+
+def validate_midi_output(path: Path) -> Dict[str, int]:
+    """Perform a dependency-free structural check of an official MIDI result."""
+
+    if not path.is_file() or path.is_symlink() or path.stat().st_size < 14:
+        raise MuseCocoQueueError(
+            "expected non-empty, non-symlinked official MIDI output not found: {}".format(
+                path
+            )
+        )
+    with path.open("rb") as handle:
+        header = handle.read(14)
+    if header[:4] != b"MThd" or int.from_bytes(header[4:8], "big") != 6:
+        raise MuseCocoQueueError("official MIDI output has an invalid MThd header: {}".format(path))
+    track_count = int.from_bytes(header[10:12], "big")
+    ticks_per_beat = int.from_bytes(header[12:14], "big")
+    if track_count < 1 or ticks_per_beat == 0 or ticks_per_beat & 0x8000:
+        raise MuseCocoQueueError(
+            "official MIDI output has invalid track/division fields: {}".format(path)
+        )
+    return {
+        "byte_count": path.stat().st_size,
+        "track_count": track_count,
+        "ticks_per_beat": ticks_per_beat,
+    }
+
+
+def truncate_remi_to_complete_bars(
+    source: Path,
+    destination: Path,
+    target_bars: int,
+) -> Dict[str, int]:
+    """Keep exactly the requested complete REMIGEN2 bar prefix."""
+
+    if target_bars < 1:
+        raise MuseCocoQueueError("REMI truncation target_bars must be positive")
+    try:
+        tokens = source.read_text(encoding="utf-8").split()
+    except (OSError, UnicodeError) as exc:
+        raise MuseCocoQueueError("could not read REMI for truncation {}: {}".format(source, exc))
+    if tokens.count("<sep>") != 1:
+        raise MuseCocoQueueError("REMI truncation requires exactly one <sep> token")
+    separator = tokens.index("<sep>")
+    music_tokens = tokens[separator + 1 :]
+    bar_indices = [
+        index for index, token in enumerate(music_tokens) if token.startswith("b-")
+    ]
+    if len(bar_indices) < target_bars:
+        raise MuseCocoQueueError(
+            "REMI has only {} complete bar boundaries; {} required".format(
+                len(bar_indices), target_bars
+            )
+        )
+    cutoff = bar_indices[target_bars - 1] + 1
+    trimmed_music = music_tokens[:cutoff]
+    destination.write_text(
+        " ".join(tokens[: separator + 1] + trimmed_music),
+        encoding="utf-8",
+    )
+    validation = validate_remi_output(destination)
+    return {
+        "target_bars": target_bars,
+        "raw_music_token_count": len(music_tokens),
+        "kept_music_token_count": len(trimmed_music),
+        "discarded_music_token_count": len(music_tokens) - len(trimmed_music),
+        **validation,
+    }
+
+
+def _decode_remi_to_midi(remi_path: Path, midi_path: Path, paths: RuntimePaths) -> None:
+    """Decode a validated prefix with MuseCoco's installed decoder library."""
+
+    module_root = str(paths.stage2)
+    added_to_path = module_root not in sys.path
+    if added_to_path:
+        sys.path.insert(0, module_root)
+    try:
+        from midiprocessor import MidiDecoder
+
+        tokens = remi_path.read_text(encoding="utf-8").split()
+        music_tokens = tokens[tokens.index("<sep>") + 1 :]
+        midi_object = MidiDecoder("REMIGEN2").decode_from_token_str_list(music_tokens)
+        midi_object.dump(str(midi_path))
+    except Exception as exc:
+        raise MuseCocoQueueError(
+            "target-bar REMI fallback could not be decoded: {}: {}".format(
+                type(exc).__name__, exc
+            )
+        )
+    finally:
+        if added_to_path:
+            sys.path.remove(module_root)
+
+
 def run_worker(
     task_dir: Path,
     paths: RuntimePaths,
@@ -550,6 +714,7 @@ def run_worker(
     softmax_copy_verified = False
     primary_error = None
     output_hashes = {}
+    output_validation = {"status": "not_started"}
     try:
         cleanup_runtime_state(paths, save_dir, "before_install")
         shutil.copy2(str(task_dir / "predict_attributes.json"), str(paths.stage1_attributes))
@@ -597,21 +762,74 @@ def run_worker(
         )
         if generation_status != 0:
             raise MuseCocoQueueError("official interactive_1billion.sh returned non-zero")
-        if not paths.remi_file.is_file() or paths.remi_file.stat().st_size == 0:
+        output_validation["status"] = "in_progress"
+        if (
+            not paths.remi_file.is_file()
+            or paths.remi_file.is_symlink()
+            or paths.remi_file.stat().st_size == 0
+        ):
             raise MuseCocoQueueError(
-                "expected non-empty official REMI output not found: {}".format(paths.remi_file)
+                "expected non-empty, non-symlinked official REMI output not found: {}".format(
+                    paths.remi_file
+                )
             )
-        shutil.copy2(str(paths.remi_file), str(save_dir / "result.remi.txt"))
-        if not (save_dir / "result.remi.txt").is_file() or (save_dir / "result.remi.txt").stat().st_size == 0:
-            raise MuseCocoQueueError("archived result.remi.txt is missing or empty")
-        result_files = {"result.remi.txt": save_dir / "result.remi.txt"}
-        if paths.midi_file.is_file() and paths.midi_file.stat().st_size > 0:
-            shutil.copy2(str(paths.midi_file), str(save_dir / "result.mid"))
-            result_files["result.mid"] = save_dir / "result.mid"
+        raw_remi = save_dir / "result.remi.raw.txt"
+        final_remi = save_dir / "result.remi.txt"
+        final_midi = save_dir / "result.mid"
+        shutil.copy2(str(paths.remi_file), str(raw_remi))
+        try:
+            output_validation["remi"] = validate_remi_output(raw_remi)
+            if (
+                not paths.midi_file.is_file()
+                or paths.midi_file.is_symlink()
+                or paths.midi_file.stat().st_size == 0
+            ):
+                raise MuseCocoQueueError(
+                    "official REMI was generated but no MIDI was decoded: {}".format(
+                        paths.midi_file
+                    )
+                )
+            validate_midi_output(paths.midi_file)
+            shutil.copy2(str(raw_remi), str(final_remi))
+            shutil.copy2(str(paths.midi_file), str(final_midi))
+            output_validation["mode"] = "official_full_output"
+        except MuseCocoQueueError as official_output_error:
+            target_bars = task["audit"].get("generation_target_bars")
+            if not isinstance(target_bars, int):
+                raise MuseCocoQueueError(
+                    "official output rejected ({}); task has no integer generation_target_bars "
+                    "for safe fallback".format(official_output_error)
+                )
+            try:
+                output_validation["truncation"] = truncate_remi_to_complete_bars(
+                    raw_remi,
+                    final_remi,
+                    target_bars,
+                )
+                _decode_remi_to_midi(final_remi, final_midi, paths)
+                output_validation["remi"] = validate_remi_output(final_remi)
+                output_validation["mode"] = "target_bar_truncation_fallback"
+                output_validation["official_output_error"] = str(official_output_error)
+            except Exception as fallback_error:
+                raise MuseCocoQueueError(
+                    "official output rejected ({}); target-bar fallback failed ({})".format(
+                        official_output_error, fallback_error
+                    )
+                )
+        output_validation["midi"] = validate_midi_output(save_dir / "result.mid")
+        output_validation["status"] = "passed"
+        result_files = {
+            "result.remi.raw.txt": raw_remi,
+            "result.remi.txt": final_remi,
+            "result.mid": final_midi,
+        }
         output_hashes = _write_hash_list(save_dir / "result.sha256.txt", result_files)
         success = True
     except Exception as exc:
         primary_error = "{}: {}".format(type(exc).__name__, exc)
+        if output_validation["status"] == "in_progress":
+            output_validation["status"] = "failed"
+            output_validation["error"] = primary_error
         with (save_dir / "worker_error.log").open("w", encoding="utf-8") as handle:
             traceback.print_exc(file=handle)
     finally:
@@ -641,6 +859,7 @@ def run_worker(
                 "official_file_sha256": official_hashes,
                 "task_audit": task["audit"],
                 "output_sha256": output_hashes,
+                "output_validation": output_validation,
                 "primary_error": primary_error,
                 "cleanup_error": cleanup_error,
                 "runtime_clean_verified": cleanup_error is None,
@@ -848,7 +1067,27 @@ def _successful_output_for_task(
             and audit.get("task_id") == task_id
             and audit.get("task_audit") == task_audit
         ):
-            return candidate, audit
+            output_hashes = audit.get("output_sha256")
+            validation = audit.get("output_validation")
+            if (
+                not isinstance(output_hashes, dict)
+                or not isinstance(validation, dict)
+                or validation.get("status") != "passed"
+            ):
+                continue
+            valid = True
+            for name in ("result.remi.txt", "result.mid"):
+                result_path = candidate / name
+                if (
+                    not result_path.is_file()
+                    or result_path.is_symlink()
+                    or result_path.stat().st_size == 0
+                    or output_hashes.get(name) != sha256_file(result_path)
+                ):
+                    valid = False
+                    break
+            if valid:
+                return candidate, audit
     raise MuseCocoQueueError(
         "no successful, input-matching output found for task {}".format(task_id)
     )

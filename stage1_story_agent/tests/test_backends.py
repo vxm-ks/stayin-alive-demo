@@ -95,37 +95,25 @@ class DeepSeekIntegrationTests(unittest.TestCase):
             backend.close()
         self.assertIsInstance(json.loads(response.content), dict)
 
-    def test_real_agent_test_mode_prefers_melodic_profile(self):
+    def test_real_agent_test_mode_keeps_story_controlled_profile(self):
         backend = DeepSeekBackend(Stage1Config.from_env())
         try:
             run = Stage1StoryAgent(backend).plan(make_test_mode_request())
         finally:
             backend.close()
 
-        raw = json.loads(run.raw_response.content)
-        raw_by_symbol = {
-            family["base_symbol"]: family for family in raw["theme_families"]
-        }
-        expected = {
-            "A": {"instrument": ["piano"], "artist": "chopin"},
-            "B": {"instrument": ["violin"], "artist": "schubert"},
-        }
-        for symbol, target in expected.items():
-            choices = raw_by_symbol[symbol]["musecoco_choices"]
-            self.assertEqual(choices["I1s2"], target["instrument"])
-            self.assertEqual(choices["S2s1"], target["artist"])
-            self.assertEqual(choices["S4"], ["classical"])
-            self.assertEqual(choices["P4"], 2)
-            self.assertEqual(choices["R1"], "not_danceable")
-            self.assertEqual(choices["R3"], "medium")
-
-        final = run.content_plan.theme_families
-        self.assertEqual(
-            [item.musecoco_attribute_targets.I1s2 for item in final],
-            [["piano"], ["violin"]],
+        plan = run.content_plan
+        self.assertEqual(plan.form_plan.form_string, "A-B-A")
+        self.assertEqual([item.bar_count for item in plan.form_plan.sections], [16, 16, 16])
+        self.assertEqual(plan.global_.tempo_bpm, 96)
+        self.assertEqual(plan.global_.global_tonality.tonic, "C")
+        self.assertEqual(plan.global_.global_tonality.mode, "minor")
+        self.assertEqual(len(plan.theme_families), 2)
+        self.assertTrue(
+            all(item.musecoco_attribute_targets.I1s2 for item in plan.theme_families)
         )
         self.assertEqual(run.content_plan.provenance.provider, "deepseek")
-        self.assertEqual(run.content_plan.provenance.prompt_version, "stage1-form-v8")
+        self.assertEqual(run.content_plan.provenance.prompt_version, "stage1-form-v9")
 
 
 if __name__ == "__main__":

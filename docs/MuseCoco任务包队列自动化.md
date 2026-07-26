@@ -1,5 +1,34 @@
 # MuseCoco 任务包队列自动化
 
+## 2026-07-24 Showcase 输出完整性门禁
+
+Showcase wrapper 已升级到 `1.3.0`。官方生成进程返回零不再等同于任务成功；worker
+必须同时满足以下条件才会返回零并把任务移入 `task_done`：
+
+1. `result.remi.txt` 是非空真实文件，包含且只包含一个 `<sep>`；
+2. `<sep>` 后的 REMIGEN2 音乐 token 类型合法，`d-*` 必须紧跟 `p-*`，
+   `v-*` 必须紧跟 `d-*`，结尾不得是未完成事件；
+3. REMI 至少包含一个小节 token 和一个完整音符事件；
+4. `result.mid` 必须存在且为非空真实文件，并通过 `MThd`、轨道数和 PPQ
+   的基础结构检查；
+5. 归档后的 REMI/MIDI 再次验证并记录 SHA-256。
+
+如果官方脚本只生成 REMI、REMI 语法非法、官方解码器没有生成 MIDI，或 MIDI
+结构非法，worker 会返回非零。既有队列会在每次严格快照和清理后自动重试，
+默认最多 3 次；不会把 REMI-only 结果误标为成功。
+
+在进入重试前允许一种严格受限的截断恢复：若任务声明的
+`generation_target_bars` 个完整 `b-*` 小节边界已经全部生成，wrapper 可将
+该边界之后的 token 丢弃，再使用 MuseCoco 已安装的官方 `MidiDecoder`
+解码截断副本。原始结果保存在 `result.remi.raw.txt`，正式交付仍是
+`result.remi.txt`。如果非法 token 位于目标范围内、完整边界不足或截断副本仍
+无法解码，恢复失败并进入正常重试；wrapper 不猜测或补写任何音符 token。
+
+`result_audit.json` 新增 `output_validation`，记录 REMI token/小节/完整音符数量、
+MIDI 大小/轨道数/PPQ以及门禁状态。结果收集器只接受
+`output_validation.status=passed`、同时具有 REMI/MIDI 哈希且现场文件哈希一致的
+输出。MuseCoco 官方生成和解码代码未修改。
+
 ## 最重要的运行命令
 
 在项目根目录的 PowerShell 中，把 Stage1 已生成的 `*-musecoco` 目录入队并串行运行：
@@ -160,9 +189,9 @@ task_xxx/
 $HOME/MuseCoco_outputs/from_task_<时间戳>_<task_id>/
 ```
 
-其中包括：任务包输入备份、实际安装的 `predict_attributes.json`、`softmax_probs.json`、预处理与推理日志、`infer_test.bin` 哈希、`result.remi.txt`、可用时的 `result.mid`、运行时快照和 `result_audit.json`。
+其中包括：任务包输入备份、实际安装的 `predict_attributes.json`、`softmax_probs.json`、预处理与推理日志、`infer_test.bin` 哈希、原始 `result.remi.raw.txt`、正式 `result.remi.txt`、必须存在的 `result.mid`、运行时快照和 `result_audit.json`。
 
-`result_audit.json` 记录官方关键文件实际哈希和预置哈希。每个队列任务另在 `queue_logs/` 生成 `*.attempts.json`，记录最大次数、每次返回码和对应日志。任务包/官方文件/环境验证失败或清理不完整属于流程基础设施冲突，会 fail closed；普通 Coco 生成失败则按上限重试，耗尽后移到 `task_failed`。
+`result_audit.json` 记录官方关键文件实际哈希、预置哈希和输出完整性门禁。每个队列任务另在 `queue_logs/` 生成 `*.attempts.json`，记录最大次数、每次返回码和对应日志。任务包/官方文件/环境验证失败或清理不完整属于流程基础设施冲突，会 fail closed；普通 Coco 生成失败（包括非法 REMI 或缺失 MIDI）则按上限重试，耗尽后移到 `task_failed`。
 
 ## 备份与官方代码保护
 

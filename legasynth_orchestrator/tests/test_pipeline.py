@@ -138,10 +138,34 @@ class OrchestratorTests(unittest.TestCase):
             stage2_command[stage2_command.index("--repetition-mode") + 1], "off"
         )
         stage1_command = runner.commands["story_and_musecoco"]
+        self.assertNotIn("--test-mode", stage1_command)
         self.assertEqual(
             stage1_command[stage1_command.index("--tonality-policy") + 1], "strict"
         )
+        request = json.loads(
+            (job / "input" / "story_request.json").read_text(encoding="utf-8")
+        )
+        self.assertFalse(request["test_mode"])
+        state = json.loads((job / "job.json").read_text(encoding="utf-8"))
+        self.assertEqual(state["generation_mode"], "production")
         self.assert_complete_job(job, dry_run=False)
+
+    def test_explicit_test_mode_is_forwarded_to_stage1(self):
+        runner = SyntheticProcessRunner()
+        job = run_pipeline(
+            story_text="固定测试故事", heartbeat_wav=self.wav,
+            rhythm_plan=self.rhythm, render_plan=self.render,
+            config=self.config(with_assets=True), dry_run=False,
+            test_mode=True, runner=runner,
+        )
+        stage1_command = runner.commands["story_and_musecoco"]
+        self.assertIn("--test-mode", stage1_command)
+        request = json.loads(
+            (job / "input" / "story_request.json").read_text(encoding="utf-8")
+        )
+        self.assertTrue(request["test_mode"])
+        state = json.loads((job / "job.json").read_text(encoding="utf-8"))
+        self.assertEqual(state["generation_mode"], "test")
 
 
 if __name__ == "__main__":

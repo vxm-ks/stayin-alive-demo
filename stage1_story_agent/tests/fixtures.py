@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from stage1_story_agent.models import LLMContentPlanDraft, StoryPlanRequest
-from stage1_story_agent.test_mode import apply_test_mode_melodic_profile
 
 
 def request_data() -> dict:
@@ -104,10 +103,7 @@ def test_mode_draft_data() -> dict:
     data["theme_families"] = data["theme_families"][:2]
     for section in data["form_sections"]:
         section["tempo_bpm"] = 96
-    for family in data["theme_families"]:
-        family["musecoco_choices"]["R1"] = "not_danceable"
-        family["musecoco_choices"]["R3"] = "medium"
-    return apply_test_mode_melodic_profile(data)
+    return data
 
 
 def make_test_mode_request() -> StoryPlanRequest:

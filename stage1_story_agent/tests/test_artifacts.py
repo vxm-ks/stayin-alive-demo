@@ -45,7 +45,15 @@ class ArtifactTests(unittest.TestCase):
             )
             self.assertEqual({item.name for item in destinations["heartbeat"].iterdir()}, {"heartbeat_processing_plan.json"})
             self.assertEqual({item.name for item in destinations["stage2"].iterdir()}, {"stage2_plan.json"})
-            self.assertEqual({item.name for item in destinations["audit"].iterdir()}, {"content_plan.json", "raw_response.json", "run_manifest.json"})
+            self.assertEqual(
+                {item.name for item in destinations["audit"].iterdir()},
+                {
+                    "content_plan.json",
+                    "raw_response.json",
+                    "form_scale_decision.json",
+                    "run_manifest.json",
+                },
+            )
             manifest = json.loads((destinations["audit"] / "run_manifest.json").read_text(encoding="utf-8"))
             self.assertEqual(manifest["files"], run.manifest.files)
             raw = (destinations["audit"] / "raw_response.json").read_text(encoding="utf-8")

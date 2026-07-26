@@ -1,5 +1,37 @@
 # LegaSynth 完整流程、系统边界与 Agent 同步记录
 
+## 2026-07-25 正式模式与测试模式入口分离
+
+Showcase 主控已停止对所有任务硬编码 `test_mode=true` 和无条件传递
+`--test-mode`。`run_pipeline()` 新增任务级 `test_mode` 参数，默认
+`false`；只有显式测试任务才启用固定 48 小节 A–B–A 档。Web 创建页将模式
+改为互斥的「正式生成」「测试模式」「快速演示」：正式生成默认调用全部模型并
+允许故事决定曲式，测试模式调用全部模型但固定测试档，快速演示对应
+`dry_run` 且不调用模型。`job.json` 和 Web 状态统一记录
+`generation_mode=production|test|dry_run`。Stage 1/2/3 的既有产物契约未改变，
+MuseCoco 官方代码与 WSL wrapper 均未修改。测试模式的固定范围同时收窄为
+全曲调性/速度、A–B–A 和三段 8+8 小节结构；故事、心跳和故事驱动的
+MuseCoco 配器/风格/律动、逐段张力与心跳密度保持可变。
+
+## 2026-07-24 Showcase MuseCoco 非法 REMI 自动重试
+
+- 已确认一次 Theme B 生成在第 14 小节发生 REMIGEN2 token 退化：
+  `d-*` 错误地跟在 `s-*` 后，官方解码器抛出断言，但官方脚本吞掉异常并返回零，
+  结果只有 REMI、没有 MIDI。
+- Showcase 外部 wrapper 升级到 `1.3.0`：任务成功现在必须同时通过 REMI
+  转换序列检查和 MIDI 基础结构检查；REMI-only 不再进入 `task_done`。
+- 非法 REMI、缺失/非法 MIDI 会让 worker 返回非零，复用既有严格清理后的
+  最多 3 次自动重试；重试耗尽才进入 `task_failed`。
+- 若完整的 `generation_target_bars` 已经生成，而异常只发生在该边界之后，
+  wrapper 会保留 `result.remi.raw.txt`，在完整小节边界截断正式 REMI，并使用
+  MuseCoco 官方 `MidiDecoder` 解码；目标范围内有错误或边界不足时禁止截断恢复，
+  仍按失败重试处理。
+- `result_audit.json` 新增 `output_validation`，结果收集器同时校验其通过状态、
+  REMI/MIDI 双文件和 SHA-256，拒绝旧的 REMI-only“伪成功”结果。
+- 修改只位于 Showcase 项目 wrapper；MuseCoco 官方代码、模型和 `main` 均未修改。
+- 部署采用独立 Showcase wrapper 路径，仍共享只允许单 worker 的官方运行时和队列锁，
+  因此 `main` 与 Showcase 不得同时启动 MuseCoco worker。
+
 ## 2026-07-22 Stage 2 任意曲式正式化
 
 - Stage 1→Stage 2 的每个 section 现显式交付 `form_label`、`theme_family_id`、`relation`、`source_section_id` 和 `material_source`，不再依靠 A/B 位置推断素材关系。
@@ -700,3 +732,26 @@ midigpt_scaffold_builder/outputs/<story_id>_<timestamp>/
 - 接口变化：无代码接口变化；`music_plan.json` 仍为草案。
 - 未解决风险：MuseCoco 适配器 Schema、全局 BPM 权威、动机保护策略尚未冻结。
 - 建议下一步：先确认 MuseCoco 接口，再正式定义 `music_plan.schema.json`。
+### 2026-07-25 / 正式模式曲式规模与主题复用决策层
+
+- 目标：解除正式模式因默认 64 小节而实际恒为四段的问题。
+- 实现：Stage 1 详细规划前新增独立、可审计的规模决策，将故事映射为 1–6 个
+  16 小节段落。
+- 主题关系：决策层同时判断新主题、原样复现、变奏和发展，并显式记录来源段；
+  例如叙事回到早先记忆时可生成 A-B-A-C。
+- 强制性：详细规划 LLM 接收完整蓝图，Python 对段数、关系、来源段和主题家族
+  再校验，不能静默改回 A-B-C-D。
+- 接口：Stage 2/3 现有任意曲式接口无需变化；Stage 1 audit 新增
+  `form_scale_decision.json`。
+- 模式边界：测试模式仍是统一调性与速度、固定 A-B-A、
+  `(8+8)×3=48` 小节，但故事和心跳可替换；dry-run 仍不调用模型。
+- 官方 MuseCoco 文件和 WSL wrapper 未因本次功能修改。
+### 2026-07-25 / Stage 2 MIDI-GPT 旋律质量门改为软门槛
+
+- 原问题：单个 4 小节候选只要未达到旋律事件数、音高变化或和弦式起奏比例阈值，
+  即使包含有效音符也会在 8 次失败后终止全流程。
+- 现行策略：首次失败后只重试两次；第三次仍未达标但含音符时记录原因并直接放行。
+- 静音处理：最后一次静音时复用同轮最近的非静音候选；只有三次全部静音时才失败。
+- 验证：使用此前失败的 80 小节 `A-B-A'-A''-C` 相同输入重新运行 Stage 2，
+  所有 5 个动态区域完成，输出完整 MIDI 和 Stage 3 handoff；随后 Stage 3
+  成功渲染 219.328 秒、48 kHz、双声道最终 WAV。

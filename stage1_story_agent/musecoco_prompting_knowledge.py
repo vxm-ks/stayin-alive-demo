@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from .test_mode import test_mode_rules
 from .musecoco_policy import BLOCKED_ARTISTS, BLOCKED_INSTRUMENTS, POLICY_VERSION
 
 
@@ -38,7 +37,7 @@ _MELODIC_SOFT_PREFERENCES = [
 
 
 def musecoco_prompting_knowledge(*, test_mode: bool, output_bars: int = 8) -> dict[str, Any]:
-    """Return JSON-ready knowledge; test mode adds an exact non-negotiable target."""
+    """Return JSON-ready knowledge shared by normal and structural test modes."""
 
     knowledge: dict[str, Any] = {
         "version": MUSECOCO_KNOWLEDGE_VERSION,
@@ -65,11 +64,8 @@ def musecoco_prompting_knowledge(*, test_mode: bool, output_bars: int = 8) -> di
         },
         "authority": {
             "normal_mode": "soft preferences; story intent may justify another supported value",
-            "test_mode": "exact target; Python will enforce it after the response",
+            "test_mode": "the same story-controlled melodic choices; only form, global tempo/key/meter, and section lengths are fixed",
         },
     }
-    if test_mode:
-        knowledge["test_mode_exact_melodic_profile"] = test_mode_rules(output_bars)[
-            "melodic_profile"
-        ]
+    del test_mode, output_bars
     return knowledge

@@ -8,6 +8,7 @@ from pathlib import Path
 from .models import (
     ContentPlan,
     FailureReport,
+    FormScaleDecision,
     HeartbeatProcessingDelivery,
     LLMContentPlanDraft,
     MuseCocoDelivery,
@@ -24,6 +25,7 @@ SCHEMAS = {
     "heartbeat_processing_plan.schema.json": HeartbeatProcessingDelivery,
     "stage2_plan.schema.json": Stage2Delivery,
     "failure_report.schema.json": FailureReport,
+    "form_scale_decision.schema.json": FormScaleDecision,
 }
 
 

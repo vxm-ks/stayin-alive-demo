@@ -34,7 +34,8 @@ complete_all_gaps_v3.py
 19. 只有当整个 4 小节块的所有目标旋律轨都没有音符时，才重新采样。
 20. 每完成一个 4 小节块都会保存 checkpoint，可用 --resume 继续运行。
 21. 每个参考片段会自动识别一条最像主旋律的轨道。
-22. 每个 4 小节候选必须通过旋律性检查，否则自动重新采样。
+22. 旋律性检查是软门槛：首次不合格后最多重试两次，仍不合格则放行
+    最近一次非静音候选并记录警告。
 23. 最后两小节会自动估计调性，并生成属功能到主和弦的终止式。
 
 小节编号说明
@@ -92,8 +93,9 @@ DEFAULT_SEED = 42
 TEMPERATURE = 1.0
 TOP_P = 0.95
 
-# 一个 4 小节候选不合格时，最多重新采样的次数。
-MAX_BLOCK_ATTEMPTS = 8
+# 一个 4 小节候选首次不合格后，最多重新采样两次。
+MAX_BLOCK_RETRIES = 2
+MAX_BLOCK_ATTEMPTS = 1 + MAX_BLOCK_RETRIES
 
 # 重试时只小幅提高温度，避免后续候选过于随机。
 TEMPERATURE_ESCALATION = 1.04
@@ -116,6 +118,24 @@ class MelodyStats:
     pitch_changes: int
     chord_onset_ratio: float
     average_pitch: float
+
+
+def candidate_gate_action(
+    *,
+    attempt_number: int,
+    total_attempts: int,
+    has_notes: bool,
+    melody_ok: bool,
+) -> str:
+    """Return the soft quality-gate action for one generated block."""
+
+    if has_notes and melody_ok:
+        return "accept"
+    if attempt_number < total_attempts:
+        return "retry"
+    if has_notes:
+        return "soft_accept"
+    return "exhausted"
 
 def detect_bpm(score: Score) -> float:
     """
@@ -1037,6 +1057,7 @@ def complete_all_gaps(
         engine = InferenceEngine.from_pretrained(model_name)
 
     generation_index = 0
+    soft_accepted_blocks = 0
 
     for gap_number, plan in enumerate(gap_plans, start=1):
         active_track_ids = find_active_melodic_tracks(
@@ -1112,6 +1133,11 @@ def complete_all_gaps(
             )
 
             accepted_counts = None
+            fallback_score = None
+            fallback_counts = None
+            fallback_stats = None
+            fallback_reasons: list[str] = []
+            fallback_attempt = None
 
             for block_attempt in range(MAX_BLOCK_ATTEMPTS):
                 current_seed = base_seed + generation_index
@@ -1168,7 +1194,21 @@ def complete_all_gaps(
                     )
                 )
 
-                if total_new_notes > 0 and melody_ok:
+                if total_new_notes > 0:
+                    fallback_score = candidate_score
+                    fallback_counts = copied_counts
+                    fallback_stats = melody_stats
+                    fallback_reasons = melody_reasons
+                    fallback_attempt = block_attempt + 1
+
+                action = candidate_gate_action(
+                    attempt_number=block_attempt + 1,
+                    total_attempts=MAX_BLOCK_ATTEMPTS,
+                    has_notes=total_new_notes > 0,
+                    melody_ok=melody_ok,
+                )
+
+                if action == "accept":
                     working_score = candidate_score
                     accepted_counts = copied_counts
                     print(
@@ -1182,22 +1222,44 @@ def complete_all_gaps(
                     break
 
                 if total_new_notes == 0:
-                    print("候选被拒绝：整个 4 小节块均为静音。")
+                    print("候选不可用：整个 4 小节块均为静音。")
                 else:
                     print(
-                        "候选被拒绝：主旋律不合格；"
+                        "候选未达到旋律质量建议；"
                         + "；".join(melody_reasons)
                     )
 
-                print(
-                    "将更换 seed 并调整 temperature 后重新生成。"
-                )
+                if action == "retry":
+                    print(
+                        "将更换 seed 并调整 temperature 后重新生成。"
+                    )
+                elif action == "soft_accept":
+                    working_score = candidate_score
+                    accepted_counts = copied_counts
+                    soft_accepted_blocks += 1
+                    print(
+                        "质量门槛降级放行：首次生成后已重试两次；"
+                        "候选包含有效音符，继续后续流程。"
+                    )
+                    break
 
             if accepted_counts is None:
-                raise RuntimeError(
-                    f"小节 {target_bars} 连续 "
-                    f"{MAX_BLOCK_ATTEMPTS} 次都未生成合格主旋律。"
-                )
+                if fallback_score is not None and fallback_counts is not None:
+                    working_score = fallback_score
+                    accepted_counts = fallback_counts
+                    soft_accepted_blocks += 1
+                    assert fallback_stats is not None
+                    print(
+                        "质量门槛降级放行：最后一次候选为静音，"
+                        f"改用第 {fallback_attempt} 次的非静音候选；"
+                        + "；".join(fallback_reasons)
+                    )
+                else:
+                    raise RuntimeError(
+                        f"小节 {target_bars} 连续 "
+                        f"{MAX_BLOCK_ATTEMPTS} 次均未生成任何音符，"
+                        "不存在可放行候选。"
+                    )
 
             rest_tracks = [
                 track_id
@@ -1270,7 +1332,11 @@ def complete_all_gaps(
     print(f"输出文件：{output_path}")
     print("原始音乐片段和鼓轨未被模型返回版本覆盖。")
     print("所有计划内 editable 区域均按各自来源配器完成。")
-    print("所有生成块均通过主旋律检查；可编辑结尾已加入终止式。")
+    print(
+        "旋律质量检查完成："
+        f"{soft_accepted_blocks} 个生成块在两次重试后降级放行；"
+        "可编辑结尾已加入终止式。"
+    )
 
 
 def main() -> None:

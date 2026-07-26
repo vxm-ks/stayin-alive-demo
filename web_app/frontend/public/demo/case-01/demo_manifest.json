@@ -1,0 +1,61 @@
+{
+  "schema_version": "legasynth-demo-case-v1",
+  "status": "placeholder",
+  "case_id": "case-01",
+  "title": {
+    "zh": "从心音与故事到一首完整音乐",
+    "en": "From Heart Sound and Story to a Complete Piece"
+  },
+  "subtitle": {
+    "zh": "一条可追溯的生成链路：真实心音提取、叙事规划、主题生成、乐曲补全与逐事件混音。",
+    "en": "A traceable pipeline for heartbeat extraction, story planning, theme generation, MIDI completion, and event-level mixing."
+  },
+  "story": {
+    "text": null
+  },
+  "audio": {
+    "original_heartbeat": {
+      "src": null,
+      "label": { "zh": "原始心音", "en": "Original heart sound" }
+    },
+    "regularized_heartbeat": {
+      "src": null,
+      "label": { "zh": "规则化心音", "en": "Regularized heartbeat" }
+    },
+    "final_mix": {
+      "src": null,
+      "label": { "zh": "最终混音", "en": "Final mix" }
+    }
+  },
+  "figures": {
+    "regularized_time_energy": {
+      "src": null,
+      "label": { "zh": "规则化心音：时间—能量图", "en": "Regularized heartbeat: time–energy plot" }
+    },
+    "heartbeat_bar_time_energy": {
+      "src": null,
+      "label": { "zh": "单小节心跳：时间—能量图", "en": "One-bar heartbeat: time–energy plot" }
+    },
+    "stage1_midi_previews": [
+      { "src": null, "label": { "zh": "主题 A", "en": "Theme A" } },
+      { "src": null, "label": { "zh": "主题 B", "en": "Theme B" } },
+      { "src": null, "label": { "zh": "主题 C", "en": "Theme C" } }
+    ],
+    "stage2_midi_preview": {
+      "src": null,
+      "label": { "zh": "完整 MIDI 乐谱", "en": "Completed MIDI score" }
+    }
+  },
+  "downloads": {
+    "stage1_midis": [],
+    "stage2_midi": { "src": null, "label": "complete.mid" }
+  },
+  "metrics": {
+    "form": null,
+    "bpm": null,
+    "tonality": null,
+    "bars": null,
+    "final_lufs": null,
+    "true_peak_dbtp": null
+  }
+}

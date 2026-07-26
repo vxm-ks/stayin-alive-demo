@@ -1,5 +1,67 @@
 {
   "$defs": {
+    "FormBlueprintSection": {
+      "additionalProperties": false,
+      "properties": {
+        "base_symbol": {
+          "pattern": "^[A-H]$",
+          "title": "Base Symbol",
+          "type": "string"
+        },
+        "narrative_function": {
+          "maxLength": 300,
+          "minLength": 1,
+          "title": "Narrative Function",
+          "type": "string"
+        },
+        "relation": {
+          "$ref": "#/$defs/FormRelation"
+        },
+        "section_id": {
+          "pattern": "^S[1-9][0-9]?$",
+          "title": "Section Id",
+          "type": "string"
+        },
+        "source_section_id": {
+          "anyOf": [
+            {
+              "pattern": "^S[1-9][0-9]?$",
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Source Section Id"
+        },
+        "variant_index": {
+          "maximum": 3,
+          "minimum": 0,
+          "title": "Variant Index",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "section_id",
+        "base_symbol",
+        "variant_index",
+        "relation",
+        "narrative_function"
+      ],
+      "title": "FormBlueprintSection",
+      "type": "object"
+    },
+    "FormRelation": {
+      "enum": [
+        "introduce",
+        "reprise",
+        "variation",
+        "development"
+      ],
+      "title": "FormRelation",
+      "type": "string"
+    },
     "StoryPlanConstraints": {
       "additionalProperties": false,
       "properties": {
@@ -62,12 +124,43 @@
           "default": null,
           "title": "Allowed Tonics"
         },
+        "auto_form_sections_max": {
+          "default": 6,
+          "maximum": 16,
+          "minimum": 1,
+          "title": "Auto Form Sections Max",
+          "type": "integer"
+        },
+        "auto_form_sections_min": {
+          "default": 1,
+          "maximum": 16,
+          "minimum": 1,
+          "title": "Auto Form Sections Min",
+          "type": "integer"
+        },
         "default_extension_bars": {
           "default": 8,
           "maximum": 63,
           "minimum": 0,
           "title": "Default Extension Bars",
           "type": "integer"
+        },
+        "form_blueprint": {
+          "anyOf": [
+            {
+              "items": {
+                "$ref": "#/$defs/FormBlueprintSection"
+              },
+              "maxItems": 16,
+              "minItems": 1,
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Form Blueprint"
         },
         "max_theme_families": {
           "default": 4,

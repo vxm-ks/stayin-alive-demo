@@ -50,7 +50,22 @@ class CliTests(unittest.TestCase):
     def test_natural_text_runs_complete_cli_with_fake_backend(self):
         with tempfile.TemporaryDirectory() as root:
             output = Path(root) / "natural-output"
-            backend = ClosingFakeBackend([json.dumps(draft_data(), ensure_ascii=False)])
+            scale = {
+                "section_count": 4,
+                "rationale": "Four dramatic functions are present.",
+                "sections": [
+                    {"narrative_function": "opening", "theme_action": "introduce", "source_section": None},
+                    {"narrative_function": "conflict", "theme_action": "introduce", "source_section": None},
+                    {"narrative_function": "changed return", "theme_action": "variation", "source_section": 1},
+                    {"narrative_function": "resolution", "theme_action": "introduce", "source_section": None},
+                ],
+            }
+            backend = ClosingFakeBackend(
+                [
+                    json.dumps(scale, ensure_ascii=False),
+                    json.dumps(draft_data(), ensure_ascii=False),
+                ]
+            )
             environment = {
                 "DEEPSEEK_API_KEY": "test-secret",
                 "STAGE1_ENV_FILE": str(Path(root) / "missing.env"),
@@ -68,7 +83,7 @@ class CliTests(unittest.TestCase):
             self.assertEqual(plan["story_id"], "cli-story")
             self.assertEqual(plan["global"]["total_bars"], 64)
             self.assertEqual(plan["form_plan"]["form_string"], "A-B-A'-C")
-            prompt_payload = json.loads(backend.requests[0].messages[1].content)
+            prompt_payload = json.loads(backend.requests[1].messages[1].content)
             normalized = prompt_payload["request"]
             self.assertEqual(normalized["story_text"], "一个平静而完整的中文故事。")
             self.assertEqual(normalized["constraints"]["total_bars"], 64)

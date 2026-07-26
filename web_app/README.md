@@ -17,7 +17,16 @@ npm.cmd run dev
 python -m uvicorn web_app.api:app --reload --port 8000
 ```
 
-前端默认访问 `http://localhost:5173`。在界面开启「演示模式」会运行主控的 `--dry-run`，不调用模型，适合快速展示完整交互。
+前端默认访问 `http://localhost:5173`。创建页提供三个互斥模式：
+
+- 「正式生成」（默认）：故事决定曲式和音乐属性，调用全部模型；
+- 「测试模式」：调用全部模型，固定全曲调性/速度及 48 小节 A–B–A 结构，
+  但故事、心跳、主题配器/风格和张力仍可变化；
+- 「快速演示」：运行主控 `--dry-run`，不调用模型。
+
+Web API 的 `POST /api/tasks` 对应接收 `test_mode` 和 `dry_run` 两个布尔字段，
+两者不能同时为 `true`。后端任务状态会返回
+`generation_mode=production|test|dry_run`。
 
 Web API 只是一层外壳，直接调用 `main` 的
 `legasynth_orchestrator.pipeline.run_pipeline()`，不复制或改写任何三阶段业务逻辑。

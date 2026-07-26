@@ -124,13 +124,22 @@ def _validate_render_plan(path: Path, package_id: str) -> None:
         )
 
 
-def _state(job_dir: Path, job_id: str, dry_run: bool) -> dict[str, Any]:
+def _state(
+    job_dir: Path,
+    job_id: str,
+    dry_run: bool,
+    test_mode: bool,
+) -> dict[str, Any]:
     return {
         "schema_version": SCHEMA_VERSION,
         "job_id": job_id,
         "status": "RUNNING",
         "current_stage": "validating_inputs",
         "dry_run": dry_run,
+        "test_mode": test_mode,
+        "generation_mode": (
+            "dry_run" if dry_run else "test" if test_mode else "production"
+        ),
         "created_at": _now(),
         "updated_at": _now(),
         "completed_stages": [],
@@ -272,6 +281,7 @@ def run_pipeline(
     config: PipelineConfig,
     package_id: str = "patient",
     dry_run: bool = False,
+    test_mode: bool = False,
     runner: ProcessRunner | None = None,
 ) -> Path:
     """Run one isolated job and return its directory."""
@@ -329,11 +339,11 @@ def run_pipeline(
     story_request = inputs / "story_request.json"
     story_request.write_bytes(_json_bytes({
         "story_id": story_id, "story_text": story_text, "language": "zh-CN",
-        "test_mode": True,
+        "test_mode": test_mode,
         "constraints": {"musecoco_output_bars": 8, "default_extension_bars": 8},
     }))
     job_file = job_dir / "job.json"
-    state = _state(job_dir, job_id, dry_run)
+    state = _state(job_dir, job_id, dry_run, test_mode)
     state["inputs"] = {
         "heartbeat_wav": {"path": str(copied_wav), "sha256": _sha256(copied_wav)},
         "rhythm_plan": {"path": str(copied_rhythm), "sha256": _sha256(copied_rhythm)},
@@ -365,13 +375,17 @@ def run_pipeline(
             if dry_run:
                 _dry_story(job_dir, output_base, story_id)
             else:
-                executor.run("story_and_musecoco", [
+                stage1_command = [
                     str(config.stage1_python), "-m", "stage1_story_agent", "plan",
-                    "--input", str(story_request), "--test-mode", "--output-dir", str(output_base),
+                    "--input", str(story_request), "--output-dir", str(output_base),
                     "--enqueue-musecoco", "--run-musecoco-queue", "--wsl-distro", config.wsl_distro,
                     "--musecoco-output-bars", "8", "--tonality-policy", config.tonality_policy,
                     "--force",
-                ], cwd=workspace, log_path=logs / "story_and_musecoco.log",
+                ]
+                if test_mode:
+                    stage1_command.append("--test-mode")
+                executor.run("story_and_musecoco", stage1_command,
+                    cwd=workspace, log_path=logs / "story_and_musecoco.log",
                     timeout_seconds=config.story_musecoco_timeout_s)
             theme_manifest = output_base.with_name(f"{output_base.name}-musecoco") / "generated_themes" / "theme_manifest.json"
             stage2_plan = output_base.with_name(f"{output_base.name}-stage2") / "stage2_plan.json"

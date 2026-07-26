@@ -1,4 +1,9 @@
-# 第一阶段故事 Agent 详细设计：单 LLM 全局规划版
+# 第一阶段故事 Agent 详细设计：两层规划版
+
+> 2026-07-25 现行补充：Stage 1 仍由同一个 DeepSeek 后端负责故事规划，但改为
+> 两次有边界的结构化调用。第一层只在 1–6 段之间决定规模和
+> introduce/reprise/variation/development 主题关系；第二层严格依据该蓝图完成详细
+> 音乐计划。Stage 2 不新增规划 LLM。旧文中的“单次规划调用”描述均由本补充取代。
 
 > 模块：`stage1_story_agent/`  
 > 设计版本：`stage1-design-v3-single-llm`  

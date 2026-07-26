@@ -81,15 +81,14 @@ class DraftValidatorTests(unittest.TestCase):
         self.assertEqual(result.theme_family_ids, ["theme-A", "theme-B"])
         self.assertEqual(result.variation_tasks, [])
 
-    def test_test_mode_rejects_different_rhythm_profile(self):
+    def test_test_mode_accepts_story_controlled_rhythm_profile(self):
         data = test_mode_draft_data()
         data["theme_families"][0]["musecoco_choices"]["R3"] = "high"
-        with self.assertRaises(PlanValidationError) as caught:
-            validate_and_compile_draft(
-                make_test_mode_request(),
-                LLMContentPlanDraft.model_validate(data),
-            )
-        self.assertIn("TEST_MODE_RHYTHM_MISMATCH", [item["code"] for item in caught.exception.issues])
+        result = validate_and_compile_draft(
+            make_test_mode_request(),
+            LLMContentPlanDraft.model_validate(data),
+        )
+        self.assertEqual(result.form_plan.form_string, "A-B-A")
 
     def test_test_mode_rejects_a_prime_instead_of_reprise_a(self):
         data = test_mode_draft_data()

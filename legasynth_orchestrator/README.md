@@ -12,12 +12,31 @@ D:\conda\python.exe -m legasynth_orchestrator `
   --render-plan ".\legasynth_orchestrator\examples\single_patient_render_plan.json"
 ```
 
+主控默认使用正式模式：`story_request.json` 写入 `test_mode=false`，且不会向
+Stage 1 传递 `--test-mode`。正式模式由故事决定曲式、主题和音乐属性。
+
+如需复现固定的 48 小节 A–B–A 测试档，必须显式加入：
+
+```powershell
+--test-mode
+```
+
+测试模式仍会真实调用 DeepSeek、MuseCoco、MIDI-GPT 和 Stage 3；它不同于
+下文完全不调用模型的 `--dry-run`。每个 `job.json` 都会记录
+`generation_mode=production|test|dry_run`。
+
 主控依次执行：
 
 1. 原始 WAV 到 `heartbeat_package`；
 2. DeepSeek 故事规划、WSL MuseCoco 生成与 8 小节后处理；
 3. Stage 2 自动发现计划引用的全部主题家族，按任意 section 序列装配，删除输入原有通道 10，重建心跳轨并只在 editable 范围运行 MIDI-GPT；
 4. Stage 3 读取带哈希 handoff，使用 FluidSynth 和真实心音素材生成 `final_mix.wav`。
+
+正式模式下，Stage 1 会先执行故事驱动的曲式规模决策：在 1–6 段之间选择长度，
+并确定主题引入/复现/变奏/发展关系，再生成详细计划。例如故事内容回到先前记忆时，
+可形成 `A-B-A-C` 而不是机械地产生四个新主题。测试模式不经过该自动决策，仍固定
+为 48 小节 `A-B-A`。规模和复用依据写入
+`stage1/story-audit/form_scale_decision.json`。
 
 调性后处理通过 `--tonality-policy strict|loose` 选择。默认 `strict`：检测实际主音与调式，移到计划主音，并在大小调不一致时确定性修正自然音阶的第 3、6、7 级。`loose`：不检测、不改写生成 MIDI 的调性，只保留计划目标作为审计信息。
 

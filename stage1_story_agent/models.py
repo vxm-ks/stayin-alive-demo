@@ -59,6 +59,15 @@ class MaterialSource(str, Enum):
     MIDIGPT_DEVELOPMENT = "midigpt_development"
 
 
+class FormBlueprintSection(StrictModel):
+    section_id: SectionId
+    base_symbol: BaseSymbol
+    variant_index: int = Field(ge=0, le=3)
+    relation: FormRelation
+    source_section_id: SectionId | None = None
+    narrative_function: str = Field(min_length=1, max_length=300)
+
+
 class NarrativeRole(str, Enum):
     OPENING = "opening"
     BUILD = "build"
@@ -78,6 +87,11 @@ def _require_unique(values: list[Any], field_name: str) -> list[Any]:
 class StoryPlanConstraints(StrictModel):
     total_bars: int = Field(default=64, ge=4, le=256)
     target_form_sections: int | None = Field(default=None, ge=1, le=16)
+    auto_form_sections_min: int = Field(default=1, ge=1, le=16)
+    auto_form_sections_max: int = Field(default=6, ge=1, le=16)
+    form_blueprint: list[FormBlueprintSection] | None = Field(
+        default=None, min_length=1, max_length=16
+    )
     max_theme_families: int = Field(default=4, ge=1, le=8)
     max_variants_per_family: int = Field(default=2, ge=0, le=3)
     allowed_time_signatures: list[SupportedTimeSignature] = Field(
@@ -97,6 +111,10 @@ class StoryPlanConstraints(StrictModel):
     def validate_constraints(self) -> "StoryPlanConstraints":
         if self.tempo_bpm_min > self.tempo_bpm_max:
             raise ValueError("tempo_bpm_min must not exceed tempo_bpm_max")
+        if self.auto_form_sections_min > self.auto_form_sections_max:
+            raise ValueError(
+                "auto_form_sections_min must not exceed auto_form_sections_max"
+            )
         if self.musecoco_generation_bars < self.musecoco_output_bars:
             raise ValueError(
                 "musecoco_generation_bars must not be less than musecoco_output_bars"
@@ -117,6 +135,15 @@ class StoryPlanConstraints(StrictModel):
             raise ValueError(
                 "target_form_sections must match total_bars divided by the default section length"
             )
+        if self.form_blueprint is not None:
+            if self.target_form_sections is None:
+                raise ValueError(
+                    "form_blueprint requires target_form_sections"
+                )
+            if len(self.form_blueprint) != self.target_form_sections:
+                raise ValueError(
+                    "form_blueprint length must match target_form_sections"
+                )
         _require_unique(self.allowed_time_signatures, "allowed_time_signatures")
         _require_unique(self.allowed_modes, "allowed_modes")
         if self.allowed_tonics is not None:
@@ -458,7 +485,7 @@ class GlobalPlan(StrictModel):
 class Provenance(StrictModel):
     provider: str = Field(min_length=1, max_length=80)
     model: str = Field(min_length=1, max_length=120)
-    prompt_version: Literal["stage1-form-v8"] = "stage1-form-v8"
+    prompt_version: Literal["stage1-form-v9"] = "stage1-form-v9"
     request_id: str = Field(min_length=1, max_length=200)
     run_id: str = Field(min_length=1, max_length=80)
     story_sha256: str = Field(pattern=r"^[0-9a-f]{64}$")
@@ -491,6 +518,23 @@ class BackendRawResponse(StrictModel):
     usage: dict[str, int] = Field(default_factory=dict)
 
 
+class FormScaleDecision(StrictModel):
+    schema_version: Literal["stage1-form-scale-v1"] = "stage1-form-scale-v1"
+    strategy: Literal["story_llm", "fixed_request", "test_mode"]
+    section_count: int = Field(ge=1, le=16)
+    section_bars: int = Field(ge=1, le=79)
+    total_bars: int = Field(ge=4, le=256)
+    rationale: str = Field(min_length=1, max_length=500)
+    form_blueprint: list[FormBlueprintSection] = Field(
+        default_factory=list, max_length=16
+    )
+    provider: str | None = Field(default=None, max_length=80)
+    model: str | None = Field(default=None, max_length=120)
+    request_id: str | None = Field(default=None, max_length=200)
+    content_attempts: int = Field(default=0, ge=0, le=3)
+    network_attempts: int = Field(default=0, ge=0)
+
+
 class RunManifest(StrictModel):
     schema_version: Literal["0.2-draft"] = "0.2-draft"
     story_id: StoryId
@@ -508,6 +552,7 @@ class PlanRun(StrictModel):
     heartbeat_delivery: HeartbeatProcessingDelivery
     stage2_delivery: Stage2Delivery
     raw_response: BackendRawResponse
+    form_scale_decision: FormScaleDecision
     manifest: RunManifest
 
 

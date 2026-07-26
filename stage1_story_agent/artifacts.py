@@ -127,6 +127,7 @@ def write_plan_run(
     heartbeat_plan = json_bytes(run.heartbeat_delivery)
     stage2_plan = json_bytes(run.stage2_delivery)
     raw_response = json_bytes(run.raw_response)
+    form_scale_decision = json_bytes(run.form_scale_decision)
     expected = run.manifest.files
     actual = {
         "content_plan.json": sha256_hex(content_plan),
@@ -134,6 +135,7 @@ def write_plan_run(
         "heartbeat_processing_plan.json": sha256_hex(heartbeat_plan),
         "stage2_plan.json": sha256_hex(stage2_plan),
         "raw_response.json": sha256_hex(raw_response),
+        "form_scale_decision.json": sha256_hex(form_scale_decision),
     }
     if expected != actual:
         raise ArtifactWriteError("MANIFEST_HASH_MISMATCH", "run manifest hashes do not match serialized artifacts")
@@ -155,6 +157,7 @@ def write_plan_run(
         destinations["audit"]: {
             "content_plan.json": content_plan,
             "raw_response.json": raw_response,
+            "form_scale_decision.json": form_scale_decision,
             "run_manifest.json": json_bytes(run.manifest),
         },
     }

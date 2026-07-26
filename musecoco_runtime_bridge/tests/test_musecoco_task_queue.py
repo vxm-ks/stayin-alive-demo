@@ -24,6 +24,13 @@ from stage1_story_agent.musecoco_encoder import ATT_KEY, build_task_package_file
 from stage1_story_agent.tests.test_musecoco_encoder import make_delivery
 
 
+VALID_REMI = "I4_0 <sep> s-9 t-32 o-0 i-0 p-60 d-1 v-1 b-1"
+VALID_MIDI = (
+    b"MThd\x00\x00\x00\x06\x00\x00\x00\x01\x01\xe0"
+    b"MTrk\x00\x00\x00\x04\xff\x2f\x00"
+)
+
+
 class MuseCocoTaskQueueTests(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
@@ -67,8 +74,10 @@ class MuseCocoTaskQueueTests(unittest.TestCase):
             (
                 "#!/bin/bash\nset -e\n"
                 f"mkdir -p '{generation}/remi' '{generation}/midi'\n"
-                f"printf 'REMIGEN2 tokens' > '{generation}/remi/0.txt'\n"
-                f"printf 'MThd-fake' > '{generation}/midi/0.mid'\n"
+                f"printf '{VALID_REMI}' > '{generation}/remi/0.txt'\n"
+                f"printf '\\x4d\\x54\\x68\\x64\\x00\\x00\\x00\\x06"
+                f"\\x00\\x00\\x00\\x01\\x01\\xe0\\x4d\\x54\\x72\\x6b"
+                f"\\x00\\x00\\x00\\x04\\xff\\x2f\\x00' > '{generation}/midi/0.mid'\n"
             ).encode("utf-8")
         )
         for name in ("interactive_dict_v5_1billion.py", "A2M_task_new.py"):
@@ -125,9 +134,9 @@ class MuseCocoTaskQueueTests(unittest.TestCase):
                 self.paths.stage1_bin.write_bytes(b"fake-infer")
             else:
                 self.paths.remi_file.parent.mkdir(parents=True, exist_ok=True)
-                self.paths.remi_file.write_text("REMIGEN2 tokens", encoding="utf-8")
+                self.paths.remi_file.write_text(VALID_REMI, encoding="utf-8")
                 self.paths.midi_file.parent.mkdir(parents=True, exist_ok=True)
-                self.paths.midi_file.write_bytes(b"MThd-fake")
+                self.paths.midi_file.write_bytes(VALID_MIDI)
             return 0
 
         with patch(
@@ -150,6 +159,7 @@ class MuseCocoTaskQueueTests(unittest.TestCase):
         self.assertEqual(audit["status"], "success")
         self.assertEqual(audit["probability_source"], "deterministic_one_hot")
         self.assertTrue(audit["runtime_clean_verified"])
+        self.assertEqual(audit["output_validation"]["status"], "passed")
         verify_clean_state(self.paths)
 
         enqueue_task_packages(self.task_source, self.paths)
@@ -171,6 +181,107 @@ class MuseCocoTaskQueueTests(unittest.TestCase):
         )
         self.assertEqual(manifest["items"][0]["theme_family_id"], "theme-A")
 
+    def test_worker_rejects_remi_when_official_decoder_produces_no_midi(self):
+        def fake_run_logged(command, cwd, log_path, environment):
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.write_text("fake command completed\n", encoding="utf-8")
+            if Path(command[0]).name.startswith("python"):
+                self.paths.stage1_bin.write_bytes(b"fake-infer")
+            else:
+                self.paths.remi_file.parent.mkdir(parents=True, exist_ok=True)
+                self.paths.remi_file.write_text(VALID_REMI, encoding="utf-8")
+            return 0
+
+        with patch(
+            "musecoco_runtime_bridge.musecoco_task_queue._run_logged",
+            side_effect=fake_run_logged,
+        ), self.assertRaisesRegex(MuseCocoQueueError, "no MIDI was decoded"):
+            run_worker(
+                self.task,
+                self.paths,
+                expected_hashes=self.expected_hashes,
+                enforce_environment=False,
+            )
+
+        output = max(self.paths.output_root.glob("from_task_*"))
+        audit = json.loads((output / "result_audit.json").read_text(encoding="utf-8"))
+        self.assertEqual(audit["status"], "failed")
+        self.assertEqual(audit["output_validation"]["status"], "failed")
+        self.assertIn("no MIDI was decoded", audit["primary_error"])
+        verify_clean_state(self.paths)
+
+    def test_worker_rejects_invalid_remi_transition_even_if_midi_exists(self):
+        malformed_remi = (
+            "I4_0 <sep> s-9 t-32 o-0 i-0 p-60 d-1 v-1 "
+            "o-10 s-9 d-7 v-1 b-1"
+        )
+
+        def fake_run_logged(command, cwd, log_path, environment):
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.write_text("fake command completed\n", encoding="utf-8")
+            if Path(command[0]).name.startswith("python"):
+                self.paths.stage1_bin.write_bytes(b"fake-infer")
+            else:
+                self.paths.remi_file.parent.mkdir(parents=True, exist_ok=True)
+                self.paths.remi_file.write_text(malformed_remi, encoding="utf-8")
+                self.paths.midi_file.parent.mkdir(parents=True, exist_ok=True)
+                self.paths.midi_file.write_bytes(VALID_MIDI)
+            return 0
+
+        with patch(
+            "musecoco_runtime_bridge.musecoco_task_queue._run_logged",
+            side_effect=fake_run_logged,
+        ), self.assertRaisesRegex(MuseCocoQueueError, "duration follows 's'"):
+            run_worker(
+                self.task,
+                self.paths,
+                expected_hashes=self.expected_hashes,
+                enforce_environment=False,
+            )
+        verify_clean_state(self.paths)
+
+    def test_worker_truncates_only_corruption_after_generation_target(self):
+        complete_bar = "s-9 t-32 o-0 i-0 p-60 d-1 v-1 b-1"
+        malformed_tail = "o-10 s-9 d-7 v-1"
+        remi = "I4_0 <sep> " + " ".join([complete_bar] * 12) + " " + malformed_tail
+
+        def fake_run_logged(command, cwd, log_path, environment):
+            log_path.parent.mkdir(parents=True, exist_ok=True)
+            log_path.write_text("fake command completed\n", encoding="utf-8")
+            if Path(command[0]).name.startswith("python"):
+                self.paths.stage1_bin.write_bytes(b"fake-infer")
+            else:
+                self.paths.remi_file.parent.mkdir(parents=True, exist_ok=True)
+                self.paths.remi_file.write_text(remi, encoding="utf-8")
+            return 0
+
+        def fake_decode(remi_path, midi_path, paths):
+            midi_path.write_bytes(VALID_MIDI)
+
+        with patch(
+            "musecoco_runtime_bridge.musecoco_task_queue._run_logged",
+            side_effect=fake_run_logged,
+        ), patch(
+            "musecoco_runtime_bridge.musecoco_task_queue._decode_remi_to_midi",
+            side_effect=fake_decode,
+        ):
+            output = run_worker(
+                self.task,
+                self.paths,
+                expected_hashes=self.expected_hashes,
+                enforce_environment=False,
+            )
+
+        audit = json.loads((output / "result_audit.json").read_text(encoding="utf-8"))
+        validation = audit["output_validation"]
+        self.assertEqual(validation["status"], "passed")
+        self.assertEqual(validation["mode"], "target_bar_truncation_fallback")
+        self.assertEqual(validation["truncation"]["target_bars"], 12)
+        self.assertEqual(validation["truncation"]["discarded_music_token_count"], 4)
+        self.assertIn("d-7", (output / "result.remi.raw.txt").read_text(encoding="utf-8"))
+        self.assertNotIn("d-7", (output / "result.remi.txt").read_text(encoding="utf-8"))
+        verify_clean_state(self.paths)
+
     def test_enqueue_is_atomic_and_done_task_is_idempotent(self):
         result = enqueue_task_packages(self.task_source, self.paths)
         self.assertEqual(result["enqueued"], [self.task.name])
@@ -180,6 +291,36 @@ class MuseCocoTaskQueueTests(unittest.TestCase):
         queued.rename(self.paths.done / self.task.name)
         repeated = enqueue_task_packages(self.task_source, self.paths)
         self.assertEqual(repeated["skipped_already_done"], [self.task.name])
+
+    def test_collector_rejects_legacy_success_without_output_validation(self):
+        enqueue_task_packages(self.task_source, self.paths)
+        queued = self.paths.queue / self.task.name
+        queued.rename(self.paths.done / self.task.name)
+        output = self.paths.output_root / f"from_task_legacy_{self.task.name}"
+        output.mkdir(parents=True)
+        (output / "result.remi.txt").write_text(VALID_REMI, encoding="utf-8")
+        (output / "result.mid").write_bytes(VALID_MIDI)
+        task_audit = json.loads((self.task / "audit.json").read_text(encoding="utf-8"))
+        (output / "result_audit.json").write_text(
+            json.dumps(
+                {
+                    "status": "success",
+                    "task_id": self.task.name,
+                    "task_audit": task_audit,
+                    "output_sha256": {
+                        "result.remi.txt": sha256_file(output / "result.remi.txt"),
+                        "result.mid": sha256_file(output / "result.mid"),
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        with self.assertRaisesRegex(MuseCocoQueueError, "no successful"):
+            collect_task_results(
+                self.task_source,
+                Path(self.temp.name) / "collected",
+                self.paths,
+            )
 
     def test_running_residue_moves_to_failed_not_back_to_queue(self):
         self.paths.running.mkdir(parents=True, exist_ok=True)

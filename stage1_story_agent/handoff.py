@@ -16,7 +16,6 @@ from .models import (
     Stage2SectionInstruction,
     ThemeFamily,
 )
-from .test_mode import TEST_MODE_SECTION_TENSIONS
 
 
 TENSION_THRESHOLD = 0.55
@@ -56,11 +55,7 @@ def _section_tension(
     draft: LLMContentPlanDraft,
     section_id: str,
     narrative_segment_ids: list[str],
-    *,
-    test_mode: bool,
 ) -> float:
-    if test_mode:
-        return TEST_MODE_SECTION_TENSIONS[section_id]
     segments = {
         item.segment_id: item for item in draft.story_analysis.narrative_segments
     }
@@ -80,6 +75,7 @@ def compile_stage2_handoff(
     *,
     test_mode: bool = False,
 ) -> Stage2Handoff:
+    del test_mode
     family_by_symbol = {family.base_symbol: family for family in draft.theme_families}
     instructions: list[Stage2SectionInstruction] = []
 
@@ -92,7 +88,6 @@ def compile_stage2_handoff(
             draft,
             compiled.section_id,
             llm_section.narrative_segment_ids,
-            test_mode=test_mode,
         )
         tension_level = "high" if source_tension >= TENSION_THRESHOLD else "low"
         if extension_bars < 0:

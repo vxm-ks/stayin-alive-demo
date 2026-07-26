@@ -88,6 +88,10 @@ def build_parser() -> argparse.ArgumentParser:
         "--dry-run", action="store_true",
         help="exercise orchestration with synthetic artifacts; never invoke any model",
     )
+    parser.add_argument(
+        "--test-mode", action="store_true",
+        help="run every real model with the deterministic Stage 1 test profile",
+    )
     return parser
 
 
@@ -110,6 +114,7 @@ def main(argv: list[str] | None = None) -> int:
             story_text=args.story, heartbeat_wav=args.heartbeat_wav,
             rhythm_plan=args.rhythm_plan, render_plan=args.render_plan,
             config=config, package_id=args.package_id, dry_run=args.dry_run,
+            test_mode=args.test_mode,
         )
     except PipelineError as exc:
         print(f"LegaSynth pipeline failed: {exc}", file=sys.stderr)
