@@ -45,7 +45,7 @@ class PipelineConfig:
     fluidsynth: Path | None = None
     general_sf2: Path | None = None
     wsl_distro: str = "Ubuntu"
-    tonality_policy: str = "strict"
+    tonality_policy: str = "soft"
     heartbeat_timeout_s: int = 900
     story_musecoco_timeout_s: int = 7200
     stage2_timeout_s: int = 7200
@@ -312,8 +312,8 @@ def run_pipeline(
             raise PipelineError("Stage 2 maximum repetition occurrences must be positive")
         if config.stage2_repetition_candidates < 1:
             raise PipelineError("Stage 2 repetition candidates must be positive")
-        if config.tonality_policy not in {"loose", "strict"}:
-            raise PipelineError("tonality policy must be loose or strict")
+        if config.tonality_policy not in {"loose", "soft", "strict"}:
+            raise PipelineError("tonality policy must be loose, soft, or strict")
         for path, label in (
             (config.stage1_python, "Stage 1 Python"),
             (config.midigpt_python, "MIDI-GPT Python"),

@@ -33,11 +33,11 @@ Web API 只是一层外壳，直接调用 `main` 的
 真实运行前，应在仓库根目录的 `.env` 中保留正式部署配置：
 
 ```dotenv
-LEGASYNTH_MIDIGPT_PYTHON=D:\LegaSynth\stage2\.conda_midigpt\python.exe
+LEGASYNTH_MIDIGPT_PYTHON=D:\path\to\stage2\.conda_midigpt\python.exe
 LEGASYNTH_MIDIGPT_MODEL=yellow
-LEGASYNTH_TONALITY_POLICY=strict
+LEGASYNTH_TONALITY_POLICY=soft
 LEGASYNTH_STAGE2_REPETITION_MODE=off
-HF_HOME=D:\LegaSynth\stage2\.cache\huggingface
+HF_HOME=D:\path\to\huggingface-cache
 ```
 
 Web 外壳还支持以下可选变量，未设置时与主控默认值一致：
@@ -61,6 +61,25 @@ python -m uvicorn web_app.api:app --port 8000
 ```
 
 然后访问 `http://localhost:8000`。
+
+## 静态 Demo 案例
+
+Demo Page 从 `web_app/frontend/public/demo/case-01/demo_manifest.json`
+读取静态案例，不会在页面加载时调用本地模型。导出案例时必须显式指定要发布的
+Stage 2 和 Stage 3 产物目录。例如，以下命令只使用任务中的软质量门控重跑结果，
+不会读取首次失败的 Stage 2 支线：
+
+```powershell
+.\.venv\Scripts\python.exe .\web_app\tools\export_demo_case.py `
+  ".\web_app\runtime\pipeline\jobs\20260725-210857-08f0a18c" `
+  ".\web_app\frontend\public\demo\case-01" `
+  --stage2-variant stage2_soft_gate_test `
+  --stage3-variant stage3_soft_gate_test
+```
+
+导出器会校验成功支线清单及文件哈希，复制公开页面需要的 WAV、MIDI、JSON
+和时间—能量图，并从真实 MIDI 生成钢琴卷帘 SVG。清单会保留原始任务状态与
+选中支线名称，避免将一次失败的原始编排记录误写成完整成功任务。
 
 ## 边界
 

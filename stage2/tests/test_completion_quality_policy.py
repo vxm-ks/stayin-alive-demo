@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from stage2.complete_all_gaps_v3 import (
+from stage2.completion_quality_policy import (
     MAX_BLOCK_ATTEMPTS,
     MAX_BLOCK_RETRIES,
     candidate_gate_action,

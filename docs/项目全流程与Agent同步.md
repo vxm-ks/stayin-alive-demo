@@ -54,9 +54,18 @@ MuseCoco 配器/风格/律动、逐段张力与心跳密度保持可变。
 
 Stage 3 新增 `perceptual_event_adaptive`：使用 BS.1770 K-weighting 逐事件测量真实心跳与同期音乐，分别计算 S1/S2 增益并限制相邻变化；心跳增益具有下限，避免旧 RMS 模式在低频能量较高时反向衰减心跳。增益不足时只在事件附近对音乐执行有上限的 attack/hold/release 闪避，随后按目标 LUFS 和真峰值共同母带化。MIDI 时间、心音音高和播放速度均不改变，逐事件决策写入 CSV 和渲染清单。
 
-## 2026-07-22 Stage 1 双调性策略
+## 2026-07-26 Stage 1 调性软控制
 
-Stage 1 后处理新增 `tonality_policy=loose|strict`，并贯通 `plan`、`enqueue-musecoco` 与一键主控。`loose` 完全跳过调性检测和音高改写，按字节复制速度归一化 MIDI 为 `final.mid`；`strict` 检测实际主音/调式，强制移到计划主音，大小调不一致时按自然大调/自然小调规则调整第 3、6、7 级。两种策略均写入主题归一化审计和最终主题清单。默认是 `strict`。
+Stage 1 后处理新增并默认采用 `tonality_policy=soft`。该模式先尝试检测 MuseCoco
+实际源调并统一到计划主音和调式；若源调检测含糊、存在多个调号或其他调性改写条件
+无法可靠满足，则保留速度归一化后的 MIDI 作为 `final.mid`，在
+`normalization_audit.json` 中记录 `applied=false`、目标调性、警告原因和输入/输出
+SHA-256，并继续后续流程。小节长度、MIDI 解析和文件完整性仍执行硬校验。
+`strict` 继续保留为显式专项模式；`loose` 完全跳过调性检测与改写。
+
+## 2026-07-22 Stage 1 调性策略（已由 2026-07-26 默认策略更新）
+
+Stage 1 后处理最初提供 `tonality_policy=loose|strict`，并贯通 `plan`、`enqueue-musecoco` 与一键主控。`loose` 完全跳过调性检测和音高改写，按字节复制速度归一化 MIDI 为 `final.mid`；`strict` 检测实际主音/调式，强制移到计划主音，大小调不一致时按自然大调/自然小调规则调整第 3、6、7 级。两种策略均写入主题归一化审计和最终主题清单。2026-07-26 起默认值改为 `soft`。
 
 ## 2026-07-22 MuseCoco WSL 入口去 PATH 依赖
 
@@ -396,7 +405,7 @@ musecoco_outputs/<story_id>/
   motif_manifest.json
 ```
 
-MuseCoco 原始 MIDI 通过解析校验后，必须依次调用 `stage1_story_agent normalize-tempo` 和 `stage1_story_agent normalize-key`。前者将全部 `Set Tempo` 事件统一到 `content_plan.json` 的权威 BPM；后者自动检测源调并把全部非鼓音符强制移到 `global.global_tonality` 的主音，同时保护通道 10 打击乐并更新调号。major/minor 不一致、检测含糊或音域越界时必须拒绝进入第二阶段。原始文件和归一化文件的 SHA-256 均写入命令审计输出。
+MuseCoco 原始 MIDI 通过解析校验后，Stage 1 自动完成速度和调性后处理。速度必须统一到 `content_plan.json` 的权威 BPM。默认 `soft` 调性策略会尝试检测源调并把非鼓音符移到 `global.global_tonality`；检测或改写不可靠时保留速度归一化结果并写入审计警告，不再因此拒绝进入第二阶段。显式 `strict` 模式及独立 `normalize-key` 命令仍保持 fail-closed。原始文件和最终文件的 SHA-256 均写入审计。
 
 `motif_manifest.json` 至少记录：
 

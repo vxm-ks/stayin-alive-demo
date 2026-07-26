@@ -41,18 +41,33 @@ def _midi(end_tick: int) -> bytes:
     return header + _chunk(b"MTrk", track)
 
 
+def _ambiguous_midi(end_tick: int) -> bytes:
+    header = _chunk(b"MThd", struct.pack(">HHH", 0, 1, 96))
+    events = bytearray(
+        b"\x00\xFF\x58\x04\x04\x02\x18\x08"
+        b"\x00\xFF\x51\x03\x07\xA1\x20"
+    )
+    elapsed = 0
+    for pitch in range(60, 72):
+        events.extend(b"\x00\x90" + bytes((pitch, 100)))
+        events.extend(_vlq(96) + b"\x80" + bytes((pitch, 0)))
+        elapsed += 96
+    events.extend(_vlq(end_tick - elapsed) + b"\xFF\x2F\x00")
+    return header + _chunk(b"MTrk", bytes(events))
+
+
 def _sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def _prepare(root: Path, *, end_tick: int) -> Path:
+def _prepare(root: Path, *, end_tick: int, midi_bytes: bytes | None = None) -> Path:
     musecoco = root / "musecoco"
     musecoco.mkdir()
     delivery = build_delivery()
     (musecoco / "musecoco_plan.json").write_bytes(json_bytes(delivery))
     result_dir = musecoco / "raw_results" / "task_001_theme-a"
     result_dir.mkdir(parents=True)
-    (result_dir / "raw.mid").write_bytes(_midi(end_tick))
+    (result_dir / "raw.mid").write_bytes(midi_bytes or _midi(end_tick))
     (result_dir / "result.remi.txt").write_text("sample", encoding="utf-8")
     (result_dir / "source_result_audit.json").write_bytes(
         json_bytes({"status": "success"})
@@ -124,6 +139,33 @@ class MuseCocoPostprocessTests(unittest.TestCase):
             )
             manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
             self.assertEqual(manifest["tonality_policy"], "loose")
+
+    def test_soft_tonality_policy_preserves_ambiguous_midi_and_publishes(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            end_tick = 12 * 4 * 96
+            musecoco = _prepare(
+                Path(temporary),
+                end_tick=end_tick,
+                midi_bytes=_ambiguous_midi(end_tick),
+            )
+            result = finalize_musecoco_results(musecoco, tonality_policy="soft")
+            theme = result.generated_themes_dir / "theme-A"
+            audit = json.loads(
+                (theme / "normalization_audit.json").read_text(encoding="utf-8")
+            )
+            self.assertEqual(audit["tonality_policy"], "soft")
+            self.assertFalse(audit["key"]["applied"])
+            self.assertEqual(
+                audit["key"]["reason"],
+                "key_normalization_not_reliably_applicable",
+            )
+            self.assertIn("ambiguous", audit["key"]["warning"])
+            self.assertEqual(
+                (theme / "tempo-normalized.mid").read_bytes(),
+                (theme / "final.mid").read_bytes(),
+            )
+            manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+            self.assertEqual(manifest["tonality_policy"], "soft")
 
     def test_short_result_errors_without_publishing_partial_output(self):
         with tempfile.TemporaryDirectory() as temporary:

@@ -80,9 +80,9 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument("--wsl-distro", default="Ubuntu")
     parser.add_argument(
-        "--tonality-policy", choices=["loose", "strict"],
-        default=os.getenv("LEGASYNTH_TONALITY_POLICY", "strict"),
-        help="Stage 1 generated-tonality policy (default: strict)",
+        "--tonality-policy", choices=["loose", "soft", "strict"],
+        default=os.getenv("LEGASYNTH_TONALITY_POLICY", "soft"),
+        help="Stage 1 generated-tonality policy (default: soft)",
     )
     parser.add_argument(
         "--dry-run", action="store_true",

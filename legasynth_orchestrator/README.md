@@ -38,7 +38,7 @@ Stage 1 传递 `--test-mode`。正式模式由故事决定曲式、主题和音�
 为 48 小节 `A-B-A`。规模和复用依据写入
 `stage1/story-audit/form_scale_decision.json`。
 
-调性后处理通过 `--tonality-policy strict|loose` 选择。默认 `strict`：检测实际主音与调式，移到计划主音，并在大小调不一致时确定性修正自然音阶的第 3、6、7 级。`loose`：不检测、不改写生成 MIDI 的调性，只保留计划目标作为审计信息。
+调性后处理通过 `--tonality-policy soft|strict|loose` 选择。默认 `soft`：先尝试检测实际主音与调式并移到计划调性；检测或改写不可靠时保留速度归一化 MIDI、写入审计警告并继续流程。`strict` 在相同情况下中止；`loose` 完全跳过检测与改写。
 
 Stage 2 尾部的整体重复检查通过
 `--stage2-repetition-mode off|detect|regenerate` 选择，默认 `off`。
@@ -57,9 +57,9 @@ MIDI-GPT，并保留主题、终止式和通道 10 心跳事件。常用完整�
 主控启动时会读取仓库根目录中不提交 Git 的 `.env`。当前 Windows 原生 MIDI-GPT 部署可配置为：
 
 ```dotenv
-LEGASYNTH_MIDIGPT_PYTHON=D:\LegaSynth\stage2\.conda_midigpt\python.exe
+LEGASYNTH_MIDIGPT_PYTHON=D:\path\to\stage2\.conda_midigpt\python.exe
 LEGASYNTH_MIDIGPT_MODEL=yellow
-HF_HOME=D:\LegaSynth\stage2\.cache\huggingface
+HF_HOME=D:\path\to\huggingface-cache
 ```
 
 也可以用 `--midigpt-python` 和 `--midigpt-model` 临时覆盖。Stage 2 由该解释器启动，其内部补全子进程继续使用同一个 `sys.executable`，因此不需要激活 Conda 环境。MIDI-GPT 使用 PyPI Python API，不依赖 HTTP 服务或源码仓库。

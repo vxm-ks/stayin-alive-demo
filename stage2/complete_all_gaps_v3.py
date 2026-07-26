@@ -72,8 +72,18 @@ from midigpt.inference import (
 
 try:
     from stage2.plan_assembler import build_generation_regions
+    from stage2.completion_quality_policy import (
+        MAX_BLOCK_ATTEMPTS,
+        MAX_BLOCK_RETRIES,
+        candidate_gate_action,
+    )
 except ModuleNotFoundError:
     from plan_assembler import build_generation_regions
+    from completion_quality_policy import (
+        MAX_BLOCK_ATTEMPTS,
+        MAX_BLOCK_RETRIES,
+        candidate_gate_action,
+    )
 
 
 # ------------------------------------------------------------
@@ -92,10 +102,6 @@ DEFAULT_SEED = 42
 # 简单版固定推理参数。
 TEMPERATURE = 1.0
 TOP_P = 0.95
-
-# 一个 4 小节候选首次不合格后，最多重新采样两次。
-MAX_BLOCK_RETRIES = 2
-MAX_BLOCK_ATTEMPTS = 1 + MAX_BLOCK_RETRIES
 
 # 重试时只小幅提高温度，避免后续候选过于随机。
 TEMPERATURE_ESCALATION = 1.04
@@ -119,23 +125,6 @@ class MelodyStats:
     chord_onset_ratio: float
     average_pitch: float
 
-
-def candidate_gate_action(
-    *,
-    attempt_number: int,
-    total_attempts: int,
-    has_notes: bool,
-    melody_ok: bool,
-) -> str:
-    """Return the soft quality-gate action for one generated block."""
-
-    if has_notes and melody_ok:
-        return "accept"
-    if attempt_number < total_attempts:
-        return "retry"
-    if has_notes:
-        return "soft_accept"
-    return "exhausted"
 
 def detect_bpm(score: Score) -> float:
     """

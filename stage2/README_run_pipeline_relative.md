@@ -7,7 +7,7 @@
 推荐直接传入 Stage 1 输出基名：
 
 ```powershell
-D:\LegaSynth\stage2\.conda_midigpt\python.exe .\stage2\run_pipeline_relative.py `
+D:\path\to\stage2\.conda_midigpt\python.exe .\stage2\run_pipeline_relative.py `
   --stage1-output-base ".\stage1_story_agent\outputs\story-001" `
   --heartbeat-package "patient_a=.\heartbeat_package" `
   --stage3-render-plan ".\stage3_midi_renderer\examples\stage3_render_plan.example.json" `
@@ -23,7 +23,7 @@ D:\LegaSynth\stage2\.conda_midigpt\python.exe .\stage2\run_pipeline_relative.py 
 也可手动绑定任意数量的主题族：
 
 ```powershell
-D:\LegaSynth\stage2\.conda_midigpt\python.exe .\stage2\run_pipeline_relative.py `
+D:\path\to\stage2\.conda_midigpt\python.exe .\stage2\run_pipeline_relative.py `
   --stage2-plan ".\inputs\stage2_plan.json" `
   --theme "theme-A=.\inputs\A.mid" `
   --theme "theme-B=.\inputs\B.mid" `
@@ -101,7 +101,7 @@ stage3_handoff.json                 # 提供 Stage 3 参数时
 使用相同输出路径加 `--resume` 可从 MIDI-GPT checkpoint 继续。运行前可检查入口与测试：
 
 ```powershell
-D:\LegaSynth\stage2\.conda_midigpt\python.exe .\stage2\run_pipeline_relative.py --help
+D:\path\to\stage2\.conda_midigpt\python.exe .\stage2\run_pipeline_relative.py --help
 D:\conda\python.exe -m unittest discover -s .\stage2\tests -v
 ```
 

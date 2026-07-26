@@ -83,3 +83,7 @@ tools/
 
 # Local clean-export folders
 git_share/
+
+# Local experiment run state
+stage3_midi_renderer/experiments/**/logs/
+stage3_midi_renderer/experiments/**/ablation_progress.json

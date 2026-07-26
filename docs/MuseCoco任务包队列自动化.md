@@ -40,7 +40,7 @@ D:\conda\python.exe -m stage1_story_agent enqueue-musecoco `
   --max-attempts 3
 ```
 
-该命令成功后还会自动把官方结果收回原 Stage1 MuseCoco 目录，并发布精确长度、速度和调性已统一的主题：
+该命令成功后还会自动把官方结果收回原 Stage1 MuseCoco 目录，并发布精确长度、统一速度且完成调性软控制的主题：
 
 ```text
 <时间戳>-musecoco/
@@ -95,7 +95,7 @@ Stage1 编码器
   -> 成功移到 task_done；失败移到 task_failed
   -> 严格清理官方运行时临时产物
   -> 外部 wrapper 收回结果并验证哈希
-  -> Stage1 外部后处理统一小节、速度和调性
+  -> Stage1 外部后处理统一小节和速度，并以软控制方式处理调性
 ```
 
 队列目录：

@@ -89,8 +89,8 @@ Copy `.env.example` to `.env`. To avoid dependence on WSL login-shell `PATH`,
 configure the deployed interpreter and queue script explicitly:
 
 ```dotenv
-MUSECOCO_QUEUE_PYTHON=/home/blue/miniforge3/envs/MuseCoco/bin/python
-MUSECOCO_QUEUE_SCRIPT=/home/blue/musecoco_tools/musecoco_task_queue.py
+MUSECOCO_QUEUE_PYTHON=/home/<user>/miniforge3/envs/MuseCoco/bin/python
+MUSECOCO_QUEUE_SCRIPT=/home/<user>/musecoco_tools/musecoco_task_queue.py
 ```
 
 An installed `legasynth-musecoco` command remains supported through

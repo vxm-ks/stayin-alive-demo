@@ -24,7 +24,7 @@ class MuseCocoPostprocessError(RuntimeError):
     """Raised when collected MuseCoco results cannot satisfy the Stage 1 contract."""
 
 
-TonalityPolicy = Literal["loose", "strict"]
+TonalityPolicy = Literal["loose", "soft", "strict"]
 
 
 @dataclass(frozen=True)
@@ -62,10 +62,12 @@ def finalize_musecoco_results(
     musecoco_dir: str | Path,
     *,
     force: bool = False,
-    tonality_policy: TonalityPolicy = "strict",
+    tonality_policy: TonalityPolicy = "soft",
 ) -> MuseCocoPostprocessResult:
-    if tonality_policy not in ("loose", "strict"):
-        raise MuseCocoPostprocessError("tonality_policy must be 'loose' or 'strict'")
+    if tonality_policy not in ("loose", "soft", "strict"):
+        raise MuseCocoPostprocessError(
+            "tonality_policy must be 'loose', 'soft', or 'strict'"
+        )
     root = Path(musecoco_dir).resolve()
     try:
         delivery = MuseCocoDelivery.model_validate(_read_json(root / "musecoco_plan.json"))
@@ -151,22 +153,41 @@ def finalize_musecoco_results(
                     tempo_midi,
                     delivery.tempo_bpm,
                 )
-                if tonality_policy == "strict":
-                    key = normalize_midi_key(
-                        tempo_midi,
-                        final_midi,
-                        delivery.global_tonality.tonic,
-                        delivery.global_tonality.mode,
-                    )
-                    key_audit = key.as_dict()
-                    key_audit.update(
-                        {
-                            "tonality_policy": "strict",
-                            "applied": True,
+                if tonality_policy in ("soft", "strict"):
+                    try:
+                        key = normalize_midi_key(
+                            tempo_midi,
+                            final_midi,
+                            delivery.global_tonality.tonic,
+                            delivery.global_tonality.mode,
+                        )
+                    except KeyNormalizationError as exc:
+                        if tonality_policy == "strict":
+                            raise
+                        shutil.copy2(tempo_midi, final_midi)
+                        unchanged_hash = _sha256(final_midi)
+                        key_audit = {
+                            "tonality_policy": "soft",
+                            "applied": False,
+                            "source_key": None,
+                            "target_key": delivery.global_tonality.model_dump(mode="json"),
+                            "reason": "key_normalization_not_reliably_applicable",
+                            "warning": str(exc),
                             "input_midi": "tempo-normalized.mid",
                             "output_midi": "final.mid",
+                            "input_sha256": unchanged_hash,
+                            "output_sha256": unchanged_hash,
                         }
-                    )
+                    else:
+                        key_audit = key.as_dict()
+                        key_audit.update(
+                            {
+                                "tonality_policy": tonality_policy,
+                                "applied": True,
+                                "input_midi": "tempo-normalized.mid",
+                                "output_midi": "final.mid",
+                            }
+                        )
                 else:
                     shutil.copy2(tempo_midi, final_midi)
                     unchanged_hash = _sha256(final_midi)

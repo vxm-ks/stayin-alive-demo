@@ -1,0 +1,39 @@
+{
+  "schema_version": "1.0",
+  "heartbeat_channel": 10,
+  "note_map": {
+    "36": "S1",
+    "38": "S2"
+  },
+  "heartbeat_conditioning_profile": "speaker_safe_loud_v1",
+  "velocity_gamma": 1.0,
+  "default_material_rule": {
+    "mode": "round_robin_per_cycle",
+    "package_ids": [
+      "patient"
+    ],
+    "gain_db": 0.0
+  },
+  "section_material_rules": [],
+  "mix": {
+    "mode": "perceptual_event_adaptive",
+    "music_gain_db": -4.0,
+    "heartbeat_gain_db": 0.0,
+    "heartbeat_over_music_db": 4.0,
+    "maximum_heartbeat_boost_db": 12.0,
+    "event_window_ms": 250.0,
+    "target_heartbeat_over_music_db": 7.0,
+    "minimum_heartbeat_gain_db": 0.0,
+    "maximum_heartbeat_gain_db": 18.0,
+    "maximum_event_gain_step_db": 2.0,
+    "maximum_music_duck_db": 4.0,
+    "duck_attack_ms": 10.0,
+    "duck_hold_ms": 100.0,
+    "duck_release_ms": 180.0,
+    "velocity_gain_floor": 0.75,
+    "measurement_weighting": "k_weighted",
+    "final_target_lufs": -16.0,
+    "true_peak_ceiling_dbtp": -1.0,
+    "publish_stems": true
+  }
+}

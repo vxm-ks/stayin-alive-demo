@@ -140,7 +140,7 @@ class OrchestratorTests(unittest.TestCase):
         stage1_command = runner.commands["story_and_musecoco"]
         self.assertNotIn("--test-mode", stage1_command)
         self.assertEqual(
-            stage1_command[stage1_command.index("--tonality-policy") + 1], "strict"
+            stage1_command[stage1_command.index("--tonality-policy") + 1], "soft"
         )
         request = json.loads(
             (job / "input" / "story_request.json").read_text(encoding="utf-8")

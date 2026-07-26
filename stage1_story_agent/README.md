@@ -78,7 +78,7 @@ python -m stage1_story_agent normalize-tempo `
 
 工具会将全部 `Set Tempo` 元事件改成 `global.tempo_bpm`，并在 tick 0 插入同一速度；音符的 tick 网格不变。也可用 `--target-bpm 96` 手动指定。该命令完全离线，不读取 API Key，默认不覆盖已有输出。
 
-## MuseCoco MIDI 强制移调修正
+## MuseCoco MIDI 调性处理
 
 速度归一化后执行：
 
@@ -91,7 +91,11 @@ python -m stage1_story_agent normalize-key `
 
 程序优先读取 MIDI 的 `Key Signature`；没有调号时，使用按音符时值加权的 Krumhansl–Kessler 24 调性轮廓估计源调。随后计算到计划主音的最短半音距离，改写全部非鼓轨 Note On/Off 音高，保持 General MIDI 通道 10 的打击乐不变，并把所有调号改为目标调号、在 tick 0 补写目标调号。标准输出 JSON 记录源/目标调性、检测方法、半音偏移、音域、事件计数及输入/输出 SHA-256。
 
-这是 fail-closed 操作：自动检测含糊、文件包含多个不同调号、major/minor 与计划不一致，或移调会让音高越过 MIDI 0–127 时均拒绝输出。纯移调不能把 major 改成 minor；此时应让 MuseCoco 重新生成。只有经过人工或独立分析确认源调时，才可同时使用 `--source-tonic` 和 `--source-mode` 覆盖自动检测。
+独立 `normalize-key` 命令仍是 fail-closed 操作。完整 Stage 1 默认使用
+`--tonality-policy soft`：先尝试相同的调性检测与改写；检测含糊或改写不可靠时，
+保留速度归一化 MIDI，记录审计警告并继续交付。显式 `strict` 会中止，
+`loose` 则完全跳过检测。只有经过人工或独立分析确认源调时，才应向独立命令同时
+提供 `--source-tonic` 与 `--source-mode`。
 
 调性检测轮廓依据：Krumhansl, C. L. (1990), *Cognitive Foundations of Musical Pitch*, Oxford University Press。算法采用全局时值加权音级直方图与 major/minor 轮廓的 Pearson 相关，不引入新的第三方依赖。
 

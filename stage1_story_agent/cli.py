@@ -69,8 +69,8 @@ def build_parser() -> argparse.ArgumentParser:
     )
     plan.add_argument("--wsl-distro", default="Ubuntu")
     plan.add_argument(
-        "--tonality-policy", choices=["loose", "strict"], default="strict",
-        help="loose preserves generated tonality; strict forces planned tonic and mode",
+        "--tonality-policy", choices=["loose", "soft", "strict"], default="soft",
+        help="soft attempts planned tonality and preserves uncertain results; loose skips detection; strict fails on uncertainty",
     )
     plan.add_argument(
         "--musecoco-output-bars",
@@ -94,8 +94,8 @@ def build_parser() -> argparse.ArgumentParser:
     enqueue.add_argument("--max-attempts", type=int, default=3)
     enqueue.add_argument("--wsl-distro", default="Ubuntu")
     enqueue.add_argument(
-        "--tonality-policy", choices=["loose", "strict"], default="strict",
-        help="loose preserves generated tonality; strict forces planned tonic and mode",
+        "--tonality-policy", choices=["loose", "soft", "strict"], default="soft",
+        help="soft attempts planned tonality and preserves uncertain results; loose skips detection; strict fails on uncertainty",
     )
     enqueue.add_argument(
         "--force-results",

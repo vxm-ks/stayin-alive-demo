@@ -1,0 +1,6 @@
+{
+  "case-01": {
+    "input_midi": "D:/path/to/final_completed.mid",
+    "heartbeat_package": "D:/path/to/heartbeat_package"
+  }
+}

@@ -155,7 +155,7 @@ def _config() -> PipelineConfig:
         general_sf2=general_sf2,
         wsl_distro=os.getenv("LEGASYNTH_WSL_DISTRO", "Ubuntu"),
         tonality_policy=_choice_setting(
-            "LEGASYNTH_TONALITY_POLICY", "strict", {"loose", "strict"}
+            "LEGASYNTH_TONALITY_POLICY", "soft", {"loose", "soft", "strict"}
         ),
     )
 
