@@ -39,11 +39,7 @@ type DemoManifest = {
   }
   provenance?: {
     source_job_id: string
-    source_job_status: string
-    selected_stage2_variant: string
-    selected_stage2_status: string
     selected_stage2_sha256: string
-    selected_stage3_variant: string
     selected_final_mix_sha256: string
     note: Localized
   }
@@ -89,7 +85,7 @@ const content = {
     brand: 'stayin’ alive',
     back: '返回创作界面',
     badgePending: '完整案例 · 数据待载入',
-    badgeReady: '完整案例 · 软质量门控版本',
+    badgeReady: '完整生成案例',
     trace: ['原始输入', '心音处理', '故事规划', '主题生成', '乐曲补全', '最终混音'],
     inputTitle: '01 · 输入与心音素材',
     inputDesc: '展示同一案例的故事文本、原始心音及 Stage 1 生成的规则化真实心音。',
@@ -118,7 +114,7 @@ const content = {
     brand: 'stayin’ alive',
     back: 'Back to studio',
     badgePending: 'Complete case · Data pending',
-    badgeReady: 'Complete case · Soft quality-gate version',
+    badgeReady: 'Complete generated case',
     trace: ['Raw input', 'Heartbeat processing', 'Story planning', 'Theme generation', 'MIDI completion', 'Final mix'],
     inputTitle: '01 · Inputs and Heartbeat Material',
     inputDesc: 'The story, original recording, and regularized real-heartbeat material from one traceable case.',

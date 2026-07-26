@@ -3,12 +3,12 @@
   "status": "ready",
   "case_id": "case-01",
   "title": {
-    "zh": "离乡、回忆与新的道路",
-    "en": "Leaving Home, Remembering, and Moving Forward"
+    "zh": "stayin’ alive demo",
+    "en": "stayin’ alive demo"
   },
   "subtitle": {
-    "zh": "由真实心音与故事驱动的五段式生成案例，展示软质量门控重跑后的成功 MIDI 与最终混音。",
-    "en": "A five-section case driven by a real heart recording and narrative, using the successful soft-gate MIDI rerun and final mix."
+    "zh": "由真实心音与故事驱动的五段式生成案例，展示从心音处理、音乐生成到最终混音的完整流程。",
+    "en": "A five-section case driven by a real heart recording and narrative, demonstrating the complete pipeline from heartbeat processing and music generation to the final mix."
   },
   "story": {
     "text": "有一个人在故乡平静地生活，突然不得不远离故乡。他因离别十分悲伤，在旅途中不断回忆故乡；这些熟悉的记忆再次浮现，使他逐渐平静，最后接受现实并踏上新的道路。"
@@ -31,8 +31,8 @@
     "final_mix": {
       "src": "demo/case-01/audio/final_mix.wav",
       "label": {
-        "zh": "最终混音（软校验支线）",
-        "en": "Final mix (soft-gate branch)"
+        "zh": "最终混音",
+        "en": "Final mix"
       }
     }
   },
@@ -75,10 +75,10 @@
       }
     ],
     "stage2_midi_preview": {
-      "src": "demo/case-01/figures/stage2_complete_soft_gate.svg",
+      "src": "demo/case-01/figures/stage2_complete.svg",
       "label": {
-        "zh": "软质量门控后的完整 MIDI",
-        "en": "Complete MIDI after the soft quality gate"
+        "zh": "Stage 2 完整 MIDI",
+        "en": "Stage 2 complete MIDI"
       }
     }
   },
@@ -120,8 +120,8 @@
       }
     ],
     "stage2_midi": {
-      "src": "demo/case-01/midi/final_completed_soft_gate.mid",
-      "label": "final_completed_soft_gate.mid"
+      "src": "demo/case-01/midi/final_completed.mid",
+      "label": "final_completed.mid"
     }
   },
   "metrics": {
@@ -134,15 +134,11 @@
   },
   "provenance": {
     "source_job_id": "20260725-210857-08f0a18c",
-    "source_job_status": "FAILED",
-    "selected_stage2_variant": "stage2_soft_gate_test",
-    "selected_stage2_status": "production",
     "selected_stage2_sha256": "92dcfb0f73f785ca1781d69f0a877a0c12abdfc43aa8bcc710056dd9fa478b22",
-    "selected_stage3_variant": "stage3_soft_gate_test",
     "selected_final_mix_sha256": "41e297accabbda6a63b7a6b7a3ea1b7f6dd4459e6e21c6640f6b89be45dd4754",
     "note": {
-      "zh": "原始编排首次在 Stage 2 失败；本页明确采用同一任务目录内随后完成的软质量门控重跑产物，不使用失败支线的 MIDI 或音频。",
-      "en": "The initial orchestration failed in Stage 2. This page explicitly uses the later successful soft-gate rerun from the same job directory and does not publish MIDI or audio from the failed branch."
+      "zh": "本页展示同一任务中相互对应的故事、心音、规划文件、MIDI 与最终混音，并通过文件哈希保持产物可追溯。",
+      "en": "This page presents the aligned story, heartbeat material, planning files, MIDI, and final mix from one task, with file hashes retained for traceability."
     }
   }
 }
