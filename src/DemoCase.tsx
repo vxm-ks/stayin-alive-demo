@@ -95,6 +95,8 @@ const content = {
     inputDesc: '展示同一案例的故事文本、原始心音及 Stage 1 生成的规则化真实心音。',
     story: '故事输入',
     waitingStory: '真实故事文本将在数据整理后载入。',
+    playbackNotice: '受限于浏览器播放器，在线心音音频展示可能存在杂音瑕疵。请下载 WAV 后使用 Windows 媒体播放器播放，以获得更佳音质。',
+    downloadWav: '下载 WAV',
     figuresTitle: '02 · 心音处理证据',
     figuresDesc: '时间—能量图用于检查事件检测、S1/S2 排列及处理前后的能量变化。',
     plansTitle: '03 · 规划与控制文件',
@@ -122,6 +124,8 @@ const content = {
     inputDesc: 'The story, original recording, and regularized real-heartbeat material from one traceable case.',
     story: 'Story input',
     waitingStory: 'The real story text will be loaded after case curation.',
+    playbackNotice: 'Browser playback may introduce audible noise into the online heart-sound preview. For better quality, download the WAV and play it with Windows Media Player.',
+    downloadWav: 'Download WAV',
     figuresTitle: '02 · Heartbeat Processing Evidence',
     figuresDesc: 'Time–energy plots expose event detection, S1/S2 placement, and energy changes after processing.',
     plansTitle: '03 · Planning and Control Artifacts',
@@ -146,13 +150,29 @@ function resolveAsset(path: string | null) {
   return `${import.meta.env.BASE_URL}${path.replace(/^\/+/, '')}`
 }
 
-function AudioCard({ asset, lang, empty }: { asset: MaybeAsset; lang: Lang; empty: string }) {
+function AudioCard({
+  asset,
+  lang,
+  empty,
+  notice,
+  downloadLabel,
+}: {
+  asset: MaybeAsset
+  lang: Lang
+  empty: string
+  notice?: string
+  downloadLabel?: string
+}) {
   const source = resolveAsset(asset.src)
   return <article className="demoAudioCard">
     <div className="demoAudioIcon"><span/><span/></div>
     <div>
       <h3>{asset.label[lang]}</h3>
       {source ? <audio controls preload="metadata" src={source}/> : <p className="demoPending">{empty}</p>}
+      {source && notice && <p className="demoPlaybackNotice">
+        {notice}
+        {downloadLabel && <> <a href={source} download>{downloadLabel} ↓</a></>}
+      </p>}
     </div>
   </article>
 }
@@ -220,7 +240,13 @@ export default function DemoCase({ lang, setLang }: { lang: Lang; setLang: (lang
           <p>{manifest.story.text || t.waitingStory}</p>
         </article>
         <div className="demoAudioStack">
-          <AudioCard asset={manifest.audio.original_heartbeat} lang={lang} empty={t.listen}/>
+          <AudioCard
+            asset={manifest.audio.original_heartbeat}
+            lang={lang}
+            empty={t.listen}
+            notice={t.playbackNotice}
+            downloadLabel={t.downloadWav}
+          />
           <AudioCard asset={manifest.audio.regularized_heartbeat} lang={lang} empty={t.listen}/>
         </div>
       </div>
