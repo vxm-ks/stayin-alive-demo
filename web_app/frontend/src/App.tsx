@@ -277,7 +277,8 @@ export default function App() {
   const reset = () => { setView('create'); setTask(null); setFile(null); setStory(''); setMessage('') }
 
   const queryView = new URLSearchParams(window.location.search).get('view')
-  if (queryView === 'demo' || window.location.pathname.endsWith('/demo')) return <DemoCase lang={lang} setLang={setLang}/>
+  const staticDemo = import.meta.env.VITE_STATIC_DEMO === 'true'
+  if (staticDemo || queryView === 'demo' || window.location.pathname.endsWith('/demo')) return <DemoCase lang={lang} setLang={setLang}/>
   if (window.location.pathname === '/wave-demo') return <WaveDemo lang={lang} setLang={setLang}/>
 
   return <main className={`app view-${view}`}>
