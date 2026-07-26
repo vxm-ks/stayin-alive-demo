@@ -191,7 +191,7 @@ export default function DemoCase({ lang, setLang }: { lang: Lang; setLang: (lang
   const t = content[lang]
 
   useEffect(() => {
-    fetch(`${import.meta.env.BASE_URL}demo/case-01/demo_manifest.json`)
+    fetch(`${import.meta.env.BASE_URL}demo/case-01/demo_manifest.json?v=20260726-2`, { cache: 'no-store' })
       .then((response) => response.ok ? response.json() : Promise.reject())
       .then((data: DemoManifest) => setManifest(data))
       .catch(() => setManifest(fallback))
