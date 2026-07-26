@@ -73,5 +73,13 @@ tools/
 *.mid
 *.midi
 
+# Reviewed, explicitly exported public Demo Page assets.
+!web_app/frontend/public/demo/case-01/audio/
+!web_app/frontend/public/demo/case-01/audio/*.wav
+!web_app/frontend/public/demo/case-01/midi/
+!web_app/frontend/public/demo/case-01/midi/*.mid
+!web_app/tools/
+!web_app/tools/export_demo_case.py
+
 # Local clean-export folders
 git_share/

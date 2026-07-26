@@ -113,10 +113,15 @@
 .demoJson i { width: 7px; height: 7px; border-radius: 50%; background: #d4dfdf; }
 .demoJson i:first-child { background: #e99a87; }
 .demoJson > div span { margin-left: 7px; color: var(--demo-muted); font: 10px/1 Consolas, monospace; }
-.demoJson pre { min-height: 138px; margin: 0; padding: 22px; color: #58717a; font: 11px/1.8 Consolas, monospace; white-space: pre-wrap; }
+.demoJson pre { min-height: 180px; max-height: 330px; overflow: auto; margin: 0; padding: 22px; color: #58717a; font: 11px/1.65 Consolas, monospace; white-space: pre-wrap; }
+.demoDownload { display: inline-flex; margin: 0 20px 18px; color: #b96858; font-size: 10px; font-weight: 700; letter-spacing: .04em; text-decoration: none; }
+.demoDownload:hover { color: #8d4b40; text-decoration: underline; }
+.demoDownload.standalone { margin: 12px 2px 0; }
 
 .demoSubhead { margin: 36px 0 16px; color: var(--demo-muted); font-size: 10px; letter-spacing: .16em; text-transform: uppercase; }
 .demoMidiThemes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+.demoMidiAsset { border: 1px solid var(--demo-line); border-radius: 20px; background: rgba(255,255,255,.8); overflow: hidden; }
+.demoMidiAsset .demoFigure { border: 0; border-radius: 0; background: transparent; }
 .demoFinal .demoAudioCard { max-width: 720px; margin: 0 auto; }
 .demoMetrics { display: grid; grid-template-columns: repeat(6, 1fr); gap: 10px; margin-top: 26px; }
 .demoMetrics div { padding: 20px 12px; text-align: center; border-radius: 15px; background: rgba(229, 237, 235, .52); }

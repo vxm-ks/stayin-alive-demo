@@ -4,6 +4,7 @@ import './demo-case.css'
 type Lang = 'zh' | 'en'
 type Localized = { zh: string; en: string }
 type MaybeAsset = { src: string | null; label: Localized }
+type PlanningArtifact = { name: string; src: string | null; excerpt: string }
 
 type DemoManifest = {
   schema_version: string
@@ -23,17 +24,28 @@ type DemoManifest = {
     stage1_midi_previews: MaybeAsset[]
     stage2_midi_preview: MaybeAsset
   }
+  planning_artifacts: PlanningArtifact[]
   downloads: {
     stage1_midis: Array<{ src: string | null; label: string }>
     stage2_midi: { src: string | null; label: string }
   }
   metrics: {
     form: string | null
-    bpm: number | null
+    bpm: number | string | null
     tonality: string | null
     bars: number | null
     final_lufs: number | null
     true_peak_dbtp: number | null
+  }
+  provenance?: {
+    source_job_id: string
+    source_job_status: string
+    selected_stage2_variant: string
+    selected_stage2_status: string
+    selected_stage2_sha256: string
+    selected_stage3_variant: string
+    selected_final_mix_sha256: string
+    note: Localized
   }
 }
 
@@ -62,6 +74,7 @@ const fallback: DemoManifest = {
     ],
     stage2_midi_preview: { src: null, label: { zh: '完整 MIDI 乐谱', en: 'Completed MIDI score' } },
   },
+  planning_artifacts: [],
   downloads: {
     stage1_midis: [],
     stage2_midi: { src: null, label: 'complete.mid' },
@@ -75,7 +88,8 @@ const content = {
   zh: {
     brand: 'stayin’ alive',
     back: '返回创作界面',
-    badge: '完整案例 · 数据待载入',
+    badgePending: '完整案例 · 数据待载入',
+    badgeReady: '完整案例 · 软质量门控版本',
     trace: ['原始输入', '心音处理', '故事规划', '主题生成', '乐曲补全', '最终混音'],
     inputTitle: '01 · 输入与心音素材',
     inputDesc: '展示同一案例的故事文本、原始心音及 Stage 1 生成的规则化真实心音。',
@@ -91,17 +105,18 @@ const content = {
     stage2: 'Stage 2 · 完整 MIDI',
     outputTitle: '05 · 最终渲染与结果',
     outputDesc: 'Stage 3 渲染 MIDI，并通过逐事件响度平衡把真实心音清晰混入音乐。',
-    waiting: '待载入',
+    waiting: '待载入', download: '下载原始文件',
     listen: '音频将在真实案例导出后显示',
     image: '图像将在真实案例导出后显示',
     form: '曲式', bpm: '速度', tonality: '调性', bars: '小节数', lufs: '最终响度', peak: '真峰值',
     provenance: '可追溯性与隐私',
-    provenanceText: '公开版本将只包含经授权或匿名化的案例素材。展示文件由单个任务目录导出，并通过清单保持故事、图像、MIDI、JSON 与最终音频的一一对应。',
+    provenanceText: '本页素材来自单个任务目录，并通过清单保持故事、图像、MIDI、JSON 与最终音频的一一对应。',
   },
   en: {
     brand: 'stayin’ alive',
     back: 'Back to studio',
-    badge: 'Complete case · Data pending',
+    badgePending: 'Complete case · Data pending',
+    badgeReady: 'Complete case · Soft quality-gate version',
     trace: ['Raw input', 'Heartbeat processing', 'Story planning', 'Theme generation', 'MIDI completion', 'Final mix'],
     inputTitle: '01 · Inputs and Heartbeat Material',
     inputDesc: 'The story, original recording, and regularized real-heartbeat material from one traceable case.',
@@ -117,21 +132,14 @@ const content = {
     stage2: 'Stage 2 · Complete MIDI',
     outputTitle: '05 · Rendering and Final Result',
     outputDesc: 'Stage 3 renders the MIDI and balances real heartbeat events against the music.',
-    waiting: 'Pending',
+    waiting: 'Pending', download: 'Download source file',
     listen: 'Audio appears after the real case is exported',
     image: 'Image appears after the real case is exported',
     form: 'Form', bpm: 'Tempo', tonality: 'Tonality', bars: 'Bars', lufs: 'Final loudness', peak: 'True peak',
     provenance: 'Traceability and privacy',
-    provenanceText: 'The public version will contain only authorized or anonymized materials. Every asset is exported from one job directory, while the manifest keeps the story, figures, MIDI, JSON, and final audio aligned.',
+    provenanceText: 'Every asset on this page is exported from one job directory, while the manifest keeps the story, figures, MIDI, JSON, and final audio aligned.',
   },
 }
-
-const jsonCards = [
-  ['form_scale_decision.json', ['section_count', 'form', 'theme_reuse', 'global_bpm', 'global_tonality']],
-  ['content_plan.json', ['sections', 'emotion', 'energy', 'tension', 'theme_id']],
-  ['heartbeat_processing_plan.json', ['target_bpm', 'meter', 'event_pattern', 'beat_peak']],
-  ['stage2_plan.json', ['sections', 'source_theme', 'motif_bars', 'fill_bars', 'protected_track']],
-]
 
 function resolveAsset(path: string | null) {
   if (!path) return null
@@ -194,7 +202,7 @@ export default function DemoCase({ lang, setLang }: { lang: Lang; setLang: (lang
     </header>
 
     <section className="demoHero">
-      <p className="demoBadge">{t.badge}</p>
+      <p className="demoBadge">{manifest.status === 'ready' ? t.badgeReady : t.badgePending}</p>
       <h1>{manifest.title[lang]}</h1>
       <p>{manifest.subtitle[lang]}</p>
       <div className="demoTrace">
@@ -229,9 +237,15 @@ export default function DemoCase({ lang, setLang }: { lang: Lang; setLang: (lang
     <section className="demoSection">
       <div className="demoSectionHead"><h2>{t.plansTitle}</h2><p>{t.plansDesc}</p></div>
       <div className="demoJsonGrid">
-        {jsonCards.map(([name, keys]) => <article className="demoJson" key={name as string}>
-          <div><i/><i/><i/><span>{name as string}</span></div>
-          <pre>{`{\n${(keys as string[]).map((key) => `  "${key}": {{…}}`).join(',\n')}\n}`}</pre>
+        {(manifest.planning_artifacts.length ? manifest.planning_artifacts : [
+          { name: 'form_scale_decision.json', src: null, excerpt: '{\n  "section_count": null\n}' },
+          { name: 'content_plan.json', src: null, excerpt: '{\n  "sections": []\n}' },
+          { name: 'rhythm_plan.json', src: null, excerpt: '{\n  "events": []\n}' },
+          { name: 'stage2_plan.json', src: null, excerpt: '{\n  "sections": []\n}' },
+        ]).map((artifact) => <article className="demoJson" key={artifact.name}>
+          <div><i/><i/><i/><span>{artifact.name}</span></div>
+          <pre>{artifact.excerpt}</pre>
+          {artifact.src && <a className="demoDownload" href={resolveAsset(artifact.src) ?? undefined} download>{t.download} ↓</a>}
         </article>)}
       </div>
     </section>
@@ -240,11 +254,21 @@ export default function DemoCase({ lang, setLang }: { lang: Lang; setLang: (lang
       <div className="demoSectionHead"><h2>{t.midiTitle}</h2><p>{t.midiDesc}</p></div>
       <h3 className="demoSubhead">{t.stage1}</h3>
       <div className="demoMidiThemes">
-        {manifest.figures.stage1_midi_previews.map((asset) =>
-          <FigureCard key={asset.label.en} asset={asset} lang={lang} empty={t.image} compact/>)}
+        {manifest.figures.stage1_midi_previews.map((asset, index) =>
+          <div className="demoMidiAsset" key={asset.label.en}>
+            <FigureCard asset={asset} lang={lang} empty={t.image} compact/>
+            {manifest.downloads.stage1_midis[index]?.src &&
+              <a className="demoDownload" href={resolveAsset(manifest.downloads.stage1_midis[index].src) ?? undefined} download>
+                {manifest.downloads.stage1_midis[index].label} ↓
+              </a>}
+          </div>)}
       </div>
       <h3 className="demoSubhead">{t.stage2}</h3>
       <FigureCard asset={manifest.figures.stage2_midi_preview} lang={lang} empty={t.image}/>
+      {manifest.downloads.stage2_midi.src &&
+        <a className="demoDownload standalone" href={resolveAsset(manifest.downloads.stage2_midi.src) ?? undefined} download>
+          {manifest.downloads.stage2_midi.label} ↓
+        </a>}
     </section>
 
     <section className="demoSection demoFinal">
@@ -255,7 +279,13 @@ export default function DemoCase({ lang, setLang }: { lang: Lang; setLang: (lang
           <span>{label}</span><strong>{value ?? t.waiting}</strong>
         </div>)}
       </div>
-      <aside className="demoProvenance"><b>{t.provenance}</b><p>{t.provenanceText}</p></aside>
+      <aside className="demoProvenance">
+        <b>{t.provenance}</b>
+        <p>
+          {manifest.provenance?.note[lang] || t.provenanceText}
+          {manifest.provenance && <><br/><code>{manifest.provenance.source_job_id}</code></>}
+        </p>
+      </aside>
     </section>
   </main>
 }

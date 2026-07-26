@@ -1,61 +1,148 @@
 {
-  "schema_version": "legasynth-demo-case-v1",
-  "status": "placeholder",
+  "schema_version": "legasynth-demo-case-v2",
+  "status": "ready",
   "case_id": "case-01",
   "title": {
-    "zh": "从心音与故事到一首完整音乐",
-    "en": "From Heart Sound and Story to a Complete Piece"
+    "zh": "离乡、回忆与新的道路",
+    "en": "Leaving Home, Remembering, and Moving Forward"
   },
   "subtitle": {
-    "zh": "一条可追溯的生成链路：真实心音提取、叙事规划、主题生成、乐曲补全与逐事件混音。",
-    "en": "A traceable pipeline for heartbeat extraction, story planning, theme generation, MIDI completion, and event-level mixing."
+    "zh": "由真实心音与故事驱动的五段式生成案例，展示软质量门控重跑后的成功 MIDI 与最终混音。",
+    "en": "A five-section case driven by a real heart recording and narrative, using the successful soft-gate MIDI rerun and final mix."
   },
   "story": {
-    "text": null
+    "text": "有一个人在故乡平静地生活，突然不得不远离故乡。他因离别十分悲伤，在旅途中不断回忆故乡；这些熟悉的记忆再次浮现，使他逐渐平静，最后接受现实并踏上新的道路。"
   },
   "audio": {
     "original_heartbeat": {
-      "src": null,
-      "label": { "zh": "原始心音", "en": "Original heart sound" }
+      "src": "demo/case-01/audio/original_heartbeat.wav",
+      "label": {
+        "zh": "原始心音",
+        "en": "Original heart sound"
+      }
     },
     "regularized_heartbeat": {
-      "src": null,
-      "label": { "zh": "规则化心音", "en": "Regularized heartbeat" }
+      "src": "demo/case-01/audio/regularized_heartbeat.wav",
+      "label": {
+        "zh": "规则化增强心音",
+        "en": "Regularized enhanced heartbeat"
+      }
     },
     "final_mix": {
-      "src": null,
-      "label": { "zh": "最终混音", "en": "Final mix" }
+      "src": "demo/case-01/audio/final_mix.wav",
+      "label": {
+        "zh": "最终混音（软校验支线）",
+        "en": "Final mix (soft-gate branch)"
+      }
     }
   },
   "figures": {
     "regularized_time_energy": {
-      "src": null,
-      "label": { "zh": "规则化心音：时间—能量图", "en": "Regularized heartbeat: time–energy plot" }
+      "src": "demo/case-01/figures/regularized_time_energy.png",
+      "label": {
+        "zh": "规则化增强心音：时间—能量图",
+        "en": "Regularized heartbeat: time–energy plot"
+      }
     },
     "heartbeat_bar_time_energy": {
-      "src": null,
-      "label": { "zh": "单小节心跳：时间—能量图", "en": "One-bar heartbeat: time–energy plot" }
+      "src": "demo/case-01/figures/heartbeat_bar_time_energy.png",
+      "label": {
+        "zh": "单小节心跳：时间—能量图",
+        "en": "One-bar heartbeat: time–energy plot"
+      }
     },
     "stage1_midi_previews": [
-      { "src": null, "label": { "zh": "主题 A", "en": "Theme A" } },
-      { "src": null, "label": { "zh": "主题 B", "en": "Theme B" } },
-      { "src": null, "label": { "zh": "主题 C", "en": "Theme C" } }
+      {
+        "src": "demo/case-01/figures/theme-A.svg",
+        "label": {
+          "zh": "主题 A",
+          "en": "Theme A"
+        }
+      },
+      {
+        "src": "demo/case-01/figures/theme-B.svg",
+        "label": {
+          "zh": "主题 B",
+          "en": "Theme B"
+        }
+      },
+      {
+        "src": "demo/case-01/figures/theme-C.svg",
+        "label": {
+          "zh": "主题 C",
+          "en": "Theme C"
+        }
+      }
     ],
     "stage2_midi_preview": {
-      "src": null,
-      "label": { "zh": "完整 MIDI 乐谱", "en": "Completed MIDI score" }
+      "src": "demo/case-01/figures/stage2_complete_soft_gate.svg",
+      "label": {
+        "zh": "软质量门控后的完整 MIDI",
+        "en": "Complete MIDI after the soft quality gate"
+      }
     }
   },
+  "planning_artifacts": [
+    {
+      "name": "form_scale_decision.json",
+      "src": "demo/case-01/json/form_scale_decision.json",
+      "excerpt": "{\n  \"strategy\": \"story_llm\",\n  \"section_count\": 5,\n  \"total_bars\": 80,\n  \"form\": \"A-B-A'-A''-C\",\n  \"theme_relations\": [\n    {\n      \"section\": \"S1\",\n      \"relation\": \"introduce\",\n      \"source\": null\n    },\n    {\n      \"section\": \"S2\",\n      \"relation\": \"introduce\",\n      \"source\": null\n    },\n    {\n      \"section\": \"S3\",\n      \"relation\": \"variation\",\n      \"source\": \"S1\"\n    },\n    {\n      \"section\": \"S4\",\n      \"relation\": \"development\",\n      \"source\": \"S3\"\n    },\n    {\n      \"section\": \"S5\",\n      \"relation\": \"introduce\",\n      \"source\": null\n    }\n  ]\n}"
+    },
+    {
+      "name": "content_plan.json",
+      "src": "demo/case-01/json/content_plan.json",
+      "excerpt": "{\n  \"global\": {\n    \"global_tonality\": {\n      \"mode\": \"minor\",\n      \"rationale\": \"Minor mode expresses the bittersweet journey from calm through sorrow to acceptance.\",\n      \"tonic\": \"C\"\n    },\n    \"tempo_bpm\": 96.0,\n    \"time_signature\": \"4/4\",\n    \"total_bars\": 80\n  },\n  \"sections\": [\n    {\n      \"id\": \"S1\",\n      \"label\": \"A\",\n      \"bars\": [\n        1,\n        16\n      ],\n      \"relation\": \"introduce\",\n      \"theme\": \"theme-A\"\n    },\n    {\n      \"id\": \"S2\",\n      \"label\": \"B\",\n      \"bars\": [\n        17,\n        32\n      ],\n      \"relation\": \"introduce\",\n      \"theme\": \"theme-B\"\n    },\n    {\n      \"id\": \"S3\",\n      \"label\": \"A'\",\n      \"bars\": [\n        33,\n        48\n      ],\n      \"relation\": \"variation\",\n      \"theme\": \"theme-A\"\n    },\n    {\n      \"id\": \"S4\",\n      \"label\": \"A''\",\n      \"bars\": [\n        49,\n        64\n      ],\n      \"relation\": \"development\",\n      \"theme\": \"theme-A\"\n    },\n    {\n      \"id\": \"S5\",\n      \"label\": \"C\",\n      \"bars\": [\n        65,\n        80\n      ],\n      \"relation\": \"introduce\",\n      \"theme\": \"theme-C\"\n    }\n  ]\n}"
+    },
+    {
+      "name": "rhythm_plan.json",
+      "src": "demo/case-01/json/rhythm_plan.json",
+      "excerpt": "{\n  \"target_bpm\": 103.15,\n  \"time_signature\": null,\n  \"event_bank\": null,\n  \"events\": [\n    {\n      \"type\": \"S1\",\n      \"offset_beats\": 0.0,\n      \"gain_db\": 0.0,\n      \"midi_velocity\": 100\n    },\n    {\n      \"type\": \"S2\",\n      \"offset_beats\": 0.5,\n      \"gain_db\": -2.0,\n      \"midi_velocity\": 85\n    }\n  ]\n}"
+    },
+    {
+      "name": "stage2_plan.json",
+      "src": "demo/case-01/json/stage2_plan.json",
+      "excerpt": "{\n  \"form_string\": \"A-B-A'-A''-C\",\n  \"total_bars\": 80,\n  \"sections\": [\n    {\n      \"id\": \"S1\",\n      \"label\": \"A\",\n      \"source\": \"musecoco_seed\",\n      \"access\": \"extension_only\",\n      \"editable\": [\n        {\n          \"bar_end\": 16,\n          \"bar_start\": 9\n        }\n      ]\n    },\n    {\n      \"id\": \"S2\",\n      \"label\": \"B\",\n      \"source\": \"musecoco_seed\",\n      \"access\": \"extension_only\",\n      \"editable\": [\n        {\n          \"bar_end\": 32,\n          \"bar_start\": 25\n        }\n      ]\n    },\n    {\n      \"id\": \"S3\",\n      \"label\": \"A'\",\n      \"source\": \"midigpt_variation\",\n      \"access\": \"modifiable\",\n      \"editable\": [\n        {\n          \"bar_end\": 48,\n          \"bar_start\": 33\n        }\n      ]\n    },\n    {\n      \"id\": \"S4\",\n      \"label\": \"A''\",\n      \"source\": \"midigpt_development\",\n      \"access\": \"modifiable\",\n      \"editable\": [\n        {\n          \"bar_end\": 64,\n          \"bar_start\": 49\n        }\n      ]\n    },\n    {\n      \"id\": \"S5\",\n      \"label\": \"C\",\n      \"source\": \"musecoco_seed\",\n      \"access\": \"extension_only\",\n      \"editable\": [\n        {\n          \"bar_end\": 80,\n          \"bar_start\": 73\n        }\n      ]\n    }\n  ]\n}"
+    }
+  ],
   "downloads": {
-    "stage1_midis": [],
-    "stage2_midi": { "src": null, "label": "complete.mid" }
+    "stage1_midis": [
+      {
+        "src": "demo/case-01/midi/theme-A.mid",
+        "label": "theme-A.mid"
+      },
+      {
+        "src": "demo/case-01/midi/theme-B.mid",
+        "label": "theme-B.mid"
+      },
+      {
+        "src": "demo/case-01/midi/theme-C.mid",
+        "label": "theme-C.mid"
+      }
+    ],
+    "stage2_midi": {
+      "src": "demo/case-01/midi/final_completed_soft_gate.mid",
+      "label": "final_completed_soft_gate.mid"
+    }
   },
   "metrics": {
-    "form": null,
-    "bpm": null,
-    "tonality": null,
-    "bars": null,
-    "final_lufs": null,
-    "true_peak_dbtp": null
+    "form": "A-B-A'-A''-C",
+    "bpm": "80–100",
+    "tonality": "C minor",
+    "bars": 80,
+    "final_lufs": -20.96,
+    "true_peak_dbtp": -1.0
+  },
+  "provenance": {
+    "source_job_id": "20260725-210857-08f0a18c",
+    "source_job_status": "FAILED",
+    "selected_stage2_variant": "stage2_soft_gate_test",
+    "selected_stage2_status": "production",
+    "selected_stage2_sha256": "92dcfb0f73f785ca1781d69f0a877a0c12abdfc43aa8bcc710056dd9fa478b22",
+    "selected_stage3_variant": "stage3_soft_gate_test",
+    "selected_final_mix_sha256": "41e297accabbda6a63b7a6b7a3ea1b7f6dd4459e6e21c6640f6b89be45dd4754",
+    "note": {
+      "zh": "原始编排首次在 Stage 2 失败；本页明确采用同一任务目录内随后完成的软质量门控重跑产物，不使用失败支线的 MIDI 或音频。",
+      "en": "The initial orchestration failed in Stage 2. This page explicitly uses the later successful soft-gate rerun from the same job directory and does not publish MIDI or audio from the failed branch."
+    }
   }
 }
